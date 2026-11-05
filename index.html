@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>3dF Checklist</title>
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="3dF Checklist">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800&display=swap" rel="stylesheet">
+<script async defer src="https://accounts.google.com/gsi/client"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+:root{
+  --negro:#000;
+  --blanco:#fff;
+  --gris-1:#f3f3f3;
+  --gris-2:#dcdcdc;
+  --gris-3:#8a8a8a;
+  --gris-4:#444;
+  --fuente:'Archivo',-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--blanco);color:var(--negro);
+  font-family:var(--fuente);font-size:15px;line-height:1.35;
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--negro);outline-offset:2px}
+
+/* Cabecera */
+header{
+  background:var(--negro);color:var(--blanco);
+  padding:calc(env(safe-area-inset-top,0px) + 14px) 20px 18px;
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+}
+.logo{height:52px;width:auto;display:block}
+.titulo{flex:1;min-width:200px}
+.titulo h1{margin:0;font-size:26px;font-weight:800;letter-spacing:.01em}
+.obra{display:flex;align-items:center;gap:6px;margin-top:2px;color:var(--gris-2)}
+.obra input{
+  background:transparent;border:0;border-bottom:1px solid #444;color:var(--blanco);
+  font-weight:600;padding:2px 0;width:min(260px,60vw);
+}
+.ficha{display:grid;grid-template-columns:auto auto;gap:2px 10px;font-size:12px;color:var(--gris-2);text-align:right}
+.ficha input{
+  background:transparent;border:0;border-bottom:1px solid #444;color:var(--blanco);
+  width:92px;text-align:right;padding:1px 0;font-size:12px;
+}
+
+main{max-width:1280px;margin:0 auto;padding:18px 16px 40px}
+
+/* Resumen */
+.resumen{display:flex;gap:28px;align-items:flex-end;flex-wrap:wrap;margin-bottom:6px}
+.dato{display:flex;flex-direction:column}
+.dato b{font-size:40px;line-height:1;font-weight:800}
+.dato span{font-size:13px;color:var(--gris-4);margin-top:4px}
+.avance{flex:1;min-width:200px}
+.avance .txt{display:flex;justify-content:space-between;font-size:13px;color:var(--gris-4);margin-bottom:6px}
+.barra{height:12px;border:2px solid var(--negro);background:var(--blanco)}
+.barra i{display:block;height:100%;background:var(--negro);width:0;transition:width .35s ease}
+
+/* Controles */
+.controles{
+  display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+  padding:14px 0;margin:10px 0 4px;border-top:2px solid var(--negro);
+}
+.seg{display:inline-flex;border:2px solid var(--negro)}
+.seg button{
+  background:var(--blanco);border:0;padding:9px 14px;cursor:pointer;font-weight:600;
+  border-right:2px solid var(--negro);
+}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--negro);color:var(--blanco)}
+select,.buscar{
+  border:2px solid var(--negro);background:var(--blanco);padding:9px 10px;min-height:42px;border-radius:0;
+}
+.buscar{flex:1;min-width:140px}
+.btn{
+  border:2px solid var(--negro);background:var(--blanco);padding:9px 14px;min-height:42px;
+  cursor:pointer;font-weight:600;border-radius:0;
+}
+.btn.primario{background:var(--negro);color:var(--blanco)}
+.btn:active{transform:translateY(1px)}
+
+/* Tabla */
+.tabla-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:1180px}
+thead th{
+  background:var(--negro);color:var(--blanco);text-align:left;font-weight:600;
+  padding:10px 8px;font-size:13px;white-space:nowrap;
+}
+tbody td{border-bottom:1px solid var(--gris-2);padding:4px;vertical-align:top}
+tbody tr:nth-child(even){background:var(--gris-1)}
+tbody tr.hecha .tarea{color:var(--gris-3);text-decoration:line-through}
+td input,td textarea{
+  width:100%;border:1px solid transparent;background:transparent;padding:7px 6px;border-radius:0;
+  resize:none;overflow:hidden;
+}
+td input:hover,td textarea:hover{border-color:var(--gris-2)}
+td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blanco);outline:none}
+.c-fecha{width:128px}.c-piso{width:56px}.c-unidad{width:70px}
+.c-estado{width:96px}.c-acc{width:44px}
+.estado{
+  width:100%;min-height:36px;border:2px solid var(--negro);background:var(--blanco);
+  font-weight:800;cursor:pointer;letter-spacing:.04em;
+}
+.estado[data-v="SI"]{background:var(--negro);color:var(--blanco)}
+.borrar{
+  width:36px;height:36px;border:0;background:transparent;font-size:22px;line-height:1;
+  cursor:pointer;color:var(--gris-3);
+}
+.borrar:hover{color:var(--negro)}
+.vacio{padding:40px 10px;text-align:center;color:var(--gris-4)}
+.pie{margin-top:14px;font-size:12px;color:var(--gris-3)}
+
+/* Celular: cada tarea es una tarjeta */
+.tabs{display:flex;gap:6px;overflow-x:auto;align-items:flex-end;margin:0 0 14px;border-bottom:2px solid var(--negro)}
+.tab{border:2px solid var(--negro);border-bottom:0;background:var(--blanco);padding:0 14px;min-height:42px;font-weight:600;cursor:pointer;white-space:nowrap;border-radius:0}
+.tab.act{background:var(--negro);color:var(--blanco);display:flex;align-items:center;gap:2px;padding:0 4px 0 6px;cursor:default}
+.tab.act input{background:transparent;border:0;border-bottom:1px dashed #777;color:var(--blanco);font-weight:800;font-size:16px;padding:8px 4px;width:auto;border-radius:0}
+.tab.act button{background:transparent;border:0;color:var(--blanco);font-size:22px;line-height:1;padding:4px 8px;cursor:pointer}
+.tab.mas{font-size:15px}
+#editor{position:fixed;inset:0;z-index:60;background:#000;color:#fff;display:flex;flex-direction:column;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 10px) 12px calc(env(safe-area-inset-bottom,0px) + 12px)}
+#editor[hidden]{display:none}
+.ed-tit{margin:0;font-size:13px;color:#ccc;text-align:center}
+.ed-lienzo{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}
+.ed-lienzo canvas{max-width:100%;max-height:62vh;touch-action:none;background:#fff;cursor:crosshair}
+.ed-barra{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center}
+.sw{width:38px;height:38px;border-radius:50%;border:2px solid #888;cursor:pointer;padding:0}
+.sw[aria-pressed="true"]{outline:3px solid #fff;outline-offset:2px}
+#editor .btn{background:#000;color:#fff;border-color:#fff;padding:8px 12px;min-height:40px}
+#editor .btn[aria-pressed="true"],#editor .btn.pri{background:#fff;color:#000}
+.c-fotos{width:200px}
+.fotos{display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:2px}
+.mini{width:42px;height:42px;object-fit:cover;border:2px solid var(--negro);cursor:pointer;background:var(--gris-2)}
+.btn-foto{position:relative;display:inline-flex;align-items:center;min-height:36px;padding:0 10px;border:2px dashed var(--negro);font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap}
+.file{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0}
+.chk{display:inline-flex;align-items:center;gap:6px;font-size:13px}
+.chk input{width:18px;height:18px;accent-color:#000}
+#visor{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px}
+#visor[hidden]{display:none}
+#visor img{max-width:100%;max-height:78vh;object-fit:contain}
+#visor div{display:flex;gap:10px}
+@media (max-width:820px){
+  header{padding-left:16px;padding-right:16px}
+  .ficha{text-align:left}
+  table{min-width:0}
+  thead{display:none}
+  table,tbody,tr,td{display:block;width:100%}
+  tbody tr{
+    border:2px solid var(--negro);margin:0 0 14px;padding:8px;background:var(--blanco)!important;
+    display:grid;grid-template-columns:1fr 1fr;gap:6px 8px;
+  }
+  tbody td{border:0;padding:0;width:auto}
+  td::before{
+    content:attr(data-l);display:block;font-size:11px;color:var(--gris-3);margin:0 0 1px 6px;
+  }
+  td.c-tarea{grid-column:1/3}
+  td.c-acc{grid-column:1/3;text-align:right}
+  td.c-fotos{grid-column:1/3}
+  .mini{width:64px;height:64px}
+  td.c-acc::before{display:none}
+  td input,td textarea{font-size:16px;border-color:var(--gris-2);background:var(--blanco)}
+  .c-fecha,.c-piso,.c-unidad,.c-estado,.c-acc{width:auto}
+  .estado{min-height:44px}
+  .controles .seg{width:100%}
+  .controles .seg button{flex:1}
+  select,.buscar{flex:1 1 140px;font-size:16px}
+}
+@media print{
+  .controles,.c-acc,.borrar,.pie{display:none!important}
+}
+@media (prefers-reduced-motion:reduce){.barra i{transition:none}}
+
+.nube-modal{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:18px}
+.nube-modal[hidden]{display:none}
+.nube-panel{position:relative;width:min(100%,440px);background:#fff;color:#000;padding:26px;border:2px solid #000;box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.nube-panel h2{margin:0 34px 8px 0;font-size:23px}
+.nube-desc,.nube-nota{font-size:13px;color:#555;line-height:1.45}
+.nube-panel label{display:block;font-size:12px;font-weight:700;margin:14px 0 5px}
+.nube-panel input{width:100%;min-height:44px;border:2px solid #000;padding:9px 10px;background:#fff}
+.nube-acciones{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.nube-acciones .btn{flex:1}
+.nube-cerrar{position:absolute;right:12px;top:8px;border:0;background:transparent;font-size:30px;cursor:pointer}
+.nube-setup{border:2px solid #000;padding:10px 12px;color:#000}.nube-setup ol{margin:6px 0 6px 18px;padding:0}.nube-setup li{margin:3px 0}.nube-setup code{font-size:12px;background:#f0f0f0;padding:0 3px;word-break:break-all}#nube-carpeta{color:#000;font-weight:700}
+.nube-mensaje{min-height:20px;font-size:13px;font-weight:600;margin:12px 0 0}
+@media(max-width:520px){.nube-panel{padding:22px 18px}.nube-acciones .btn{flex-basis:100%}}
+
+</style>
+</head>
+<body>
+
+<header>
+  <img class="logo" src="logo.png" alt="3dF Desarrollos">
+  <div class="titulo">
+    <h1>CHECKLIST TAREAS</h1>
+    <div class="obra"><label for="obra">Obra:</label><input id="obra" data-meta="obra" autocomplete="off"></div>
+  </div>
+  <div class="ficha">
+    <input data-meta="codigo" aria-label="Código" autocomplete="off">
+    <span></span>
+    <span>Versión</span><input data-meta="version" aria-label="Versión" autocomplete="off">
+    <span>Fecha</span><input data-meta="fecha" aria-label="Fecha del documento" autocomplete="off">
+  </div>
+</header>
+
+<main>
+  <nav class="tabs" id="tabs" aria-label="Pestañas de checklist"></nav>
+
+  <section class="resumen" aria-label="Resumen">
+    <div class="dato"><b id="n-total">0</b><span>Tareas</span></div>
+    <div class="dato"><b id="n-pend">0</b><span>Pendientes</span></div>
+    <div class="dato"><b id="n-hechas">0</b><span>Ejecutadas</span></div>
+    <div class="avance">
+      <div class="txt"><span>Avance</span><span id="pct">0%</span></div>
+      <div class="barra"><i id="barra"></i></div>
+    </div>
+  </section>
+
+  <section class="controles" aria-label="Filtros">
+    <div class="seg" role="group" aria-label="Filtrar por estado">
+      <button type="button" data-estado="todas" aria-pressed="true">Todas</button>
+      <button type="button" data-estado="NO" aria-pressed="false">Pendientes</button>
+      <button type="button" data-estado="SI" aria-pressed="false">Ejecutadas</button>
+    </div>
+    <select id="f-rubro" aria-label="Filtrar por rubro"></select>
+    <input class="buscar" id="f-texto" type="search" placeholder="Buscar tarea, ambiente, contratista…" aria-label="Buscar">
+    <button class="btn" id="cuenta-nube" type="button">Cuenta / sincronización</button>
+    <span id="estado-nube" aria-live="polite" style="font-size:12px;font-weight:600">Solo en este dispositivo</span>
+    <button class="btn primario" id="agregar" type="button">+ Nueva tarea</button>
+    <button class="btn" id="pdf" type="button">Exportar PDF</button>
+    <label class="chk"><input type="checkbox" id="pdf-fotos" checked> Fotos en PDF y Excel</label>
+    <button class="btn" id="xls" type="button">Exportar Excel</button>
+    <button class="btn" id="csv" type="button">Exportar CSV</button>
+  </section>
+
+  <div class="tabla-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="c-fecha">Fecha</th>
+          <th>Tarea</th>
+          <th class="c-piso">Piso</th>
+          <th class="c-unidad">Unidad</th>
+          <th>Ambiente</th>
+          <th class="c-estado">Ejecutado</th>
+          <th>Rubro</th>
+          <th>Contratista</th>
+          <th>Ingresado</th>
+          <th class="c-fotos">Fotos</th>
+          <th class="c-acc"><span class="sr" aria-hidden="true"></span></th>
+        </tr>
+      </thead>
+      <tbody id="filas"></tbody>
+    </table>
+    <div class="vacio" id="vacio" hidden>No hay tareas con estos filtros.</div>
+  </div>
+
+  <p class="pie">Los cambios se guardan automáticamente en este dispositivo. Iniciá sesión con Google en Cuenta / sincronización para guardarlos también en tu Google Drive.</p>
+</main>
+
+
+<div id="nube-modal" class="nube-modal" hidden>
+  <section class="nube-panel" role="dialog" aria-modal="true" aria-labelledby="nube-titulo">
+    <button type="button" id="nube-cerrar" class="nube-cerrar" aria-label="Cerrar">×</button>
+    <h2 id="nube-titulo">Google Drive</h2>
+    <p class="nube-desc">Iniciá sesión con tu cuenta de Google para guardar tu checklist en un Excel (<b>checklist.xlsx</b>) y sus fotos en la carpeta <b>3dF Checklist</b> de tu Google Drive. Seguís editando en la app, también sin conexión; los cambios se suben al sincronizar y lo que se edite en el Excel se trae a la app.</p>
+    <div id="nube-setup" class="nube-desc nube-setup" hidden>
+      <b>Falta configurar el acceso a Google (una sola vez, gratis):</b>
+      <ol>
+        <li>En <b>console.cloud.google.com</b> creá un proyecto y habilitá <b>Google Drive API</b>.</li>
+        <li>En <b>Pantalla de consentimiento OAuth</b> elegí <b>Externo</b>, modo prueba, y agregá los correos de los usuarios.</li>
+        <li>En <b>Credenciales</b> creá un <b>ID de cliente OAuth</b> tipo <b>Aplicación web</b> con orígenes JavaScript autorizados: <code>http://localhost:8765</code> y la URL de GitHub Pages.</li>
+        <li>Permiso usado: <code>drive.file</code> (la app solo ve los archivos que ella crea).</li>
+        <li>Pegá el ID en <code>var GOOGLE_CLIENT_ID = '998929723356-hdjao8aaqovh9ki23tdq3g7ofuf0hq48.apps.googleusercontent.com';</code> dentro de <code>index.html</code>.</li>
+      </ol>
+      Ver <code>SETUP-GOOGLE.md</code>.
+    </div>
+    <div class="nube-acciones">
+      <button type="button" class="btn primario" id="nube-login">Iniciar sesión con Google</button>
+    </div>
+    <div class="nube-acciones">
+      <button type="button" class="btn" id="nube-sync">Sincronizar ahora</button>
+      <button type="button" class="btn" id="nube-salir">Cerrar sesión</button>
+    </div>
+    <p class="nube-desc"><a id="nube-carpeta" href="#" target="_blank" rel="noopener" hidden>Abrir carpeta 3dF Checklist en Google Drive</a></p>
+    <p id="nube-mensaje" class="nube-mensaje" aria-live="polite"></p>
+    <p class="nube-nota">Cada persona usa su propia cuenta de Google: su Excel y sus fotos quedan solo en su Drive.</p>
+  </section>
+</div>
+
+<datalist id="dl-rubro"></datalist>
+<datalist id="dl-contratista"></datalist>
+<datalist id="dl-ambiente"></datalist>
+<datalist id="dl-ingresado"></datalist>
+
+<script>
+(function(){
+  'use strict';
+  var KEY = '3df-checklist-edificio-stf-v2';
+
+  var INICIAL = {
+    meta: { obra:'Edificio StF', codigo:'R-D00-P17', version:'1', fecha:'20/01/2026' },
+    rows: [],
+    nextId: 1
+  };
+
+  var state;
+  try { state = JSON.parse(localStorage.getItem(KEY)); } catch(e){ state = null; }
+  if (!state || !state.meta || !(Array.isArray(state.tabs) || Array.isArray(state.rows))) {
+    state = JSON.parse(JSON.stringify(INICIAL));
+  }
+  if (!Array.isArray(state.tabs) || !state.tabs.length) {
+    state.tabs = [{ id:1, nombre:'General', rows: state.rows || [], nextId: state.nextId || 1 }];
+    state.activa = 1;
+  }
+  function tabActiva(){
+    for (var i = 0; i < state.tabs.length; i++) if (state.tabs[i].id === state.activa) return state.tabs[i];
+    return state.tabs[0];
+  }
+  state.activa = tabActiva().id;
+  state.rows = tabActiva().rows;
+  state.nextId = tabActiva().nextId;
+
+  var filtro = { estado:'todas', rubro:'', texto:'' };
+  var photoCache = {};
+
+  var $ = function(s){ return document.querySelector(s); };
+  var tbody = $('#filas');
+
+  function guardar(){
+    var t = tabActiva(); t.rows = state.rows; t.nextId = state.nextId;
+    try { localStorage.setItem(KEY, JSON.stringify({ meta:state.meta, tabs:state.tabs, activa:state.activa })); } catch(e){}
+    if (typeof programarSync === 'function') programarSync();
+  }
+
+  function hoyISO(){
+    var d = new Date();
+    var m = String(d.getMonth()+1).padStart(2,'0');
+    var dd = String(d.getDate()).padStart(2,'0');
+    return d.getFullYear()+'-'+m+'-'+dd;
+  }
+
+  function norm(s){
+    return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  }
+
+  function unicos(campo){
+    var vistos = {}, out = [];
+    state.rows.forEach(function(r){
+      var v = String(r[campo]||'').trim();
+      var k = norm(v);
+      if (v && !vistos[k]) { vistos[k] = 1; out.push(v); }
+    });
+    return out.sort(function(a,b){ return a.localeCompare(b,'es'); });
+  }
+
+  function llenarDatalist(id, campo){
+    var dl = document.getElementById(id);
+    dl.innerHTML = '';
+    unicos(campo).forEach(function(v){
+      var o = document.createElement('option'); o.value = v; dl.appendChild(o);
+    });
+  }
+
+  function actualizarListas(){
+    llenarDatalist('dl-rubro','rubro');
+    llenarDatalist('dl-contratista','contratista');
+    llenarDatalist('dl-ambiente','ambiente');
+    llenarDatalist('dl-ingresado','ingresado');
+
+    var sel = $('#f-rubro');
+    var rubros = unicos('rubro');
+    if (filtro.rubro && !rubros.some(function(r){ return norm(r)===norm(filtro.rubro); })) filtro.rubro = '';
+    sel.innerHTML = '';
+    var o0 = document.createElement('option'); o0.value=''; o0.textContent='Todos los rubros'; sel.appendChild(o0);
+    rubros.forEach(function(r){
+      var o = document.createElement('option'); o.value = r; o.textContent = r;
+      if (norm(r)===norm(filtro.rubro)) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+
+  function actualizarResumen(){
+    var total = state.rows.length;
+    var hechas = state.rows.filter(function(r){ return r.ejecutado==='SI'; }).length;
+    var pct = total ? Math.round(hechas*100/total) : 0;
+    $('#n-total').textContent = total;
+    $('#n-hechas').textContent = hechas;
+    $('#n-pend').textContent = total - hechas;
+    $('#pct').textContent = pct + '%';
+    $('#barra').style.width = pct + '%';
+  }
+
+  function visible(r){
+    if (filtro.estado !== 'todas' && r.ejecutado !== filtro.estado) return false;
+    if (filtro.rubro && norm(r.rubro) !== norm(filtro.rubro)) return false;
+    if (filtro.texto){
+      var t = norm(filtro.texto);
+      var pajar = norm([r.tarea,r.ambiente,r.rubro,r.contratista,r.ingresado,r.piso,r.unidad].join(' '));
+      if (pajar.indexOf(t) === -1) return false;
+    }
+    return true;
+  }
+
+  function celda(clase, etiqueta, hijo){
+    var td = document.createElement('td');
+    if (clase) td.className = clase;
+    td.setAttribute('data-l', etiqueta);
+    td.appendChild(hijo);
+    return td;
+  }
+
+  function campoInput(r, campo, tipo, lista, etiqueta){
+    var i = document.createElement('input');
+    i.type = tipo || 'text';
+    i.value = r[campo] || '';
+    i.setAttribute('data-f', campo);
+    i.setAttribute('aria-label', etiqueta);
+    i.autocomplete = 'off';
+    if (lista) i.setAttribute('list', lista);
+    return i;
+  }
+
+  function crearFila(r){
+    var tr = document.createElement('tr');
+    tr.setAttribute('data-id', r.id);
+    if (r.ejecutado === 'SI') tr.className = 'hecha';
+
+    tr.appendChild(celda('c-fecha','Fecha', campoInput(r,'fecha','date',null,'Fecha')));
+
+    var ta = document.createElement('textarea');
+    ta.rows = 1; ta.value = r.tarea || ''; ta.className = 'tarea';
+    ta.setAttribute('data-f','tarea'); ta.setAttribute('aria-label','Tarea');
+    tr.appendChild(celda('c-tarea','Tarea', ta));
+
+    tr.appendChild(celda('c-piso','Piso', campoInput(r,'piso','text',null,'Piso')));
+    tr.appendChild(celda('c-unidad','Unidad', campoInput(r,'unidad','text',null,'Unidad')));
+    tr.appendChild(celda('c-ambiente','Ambiente', campoInput(r,'ambiente','text','dl-ambiente','Ambiente')));
+
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'estado'; b.setAttribute('data-act','toggle');
+    b.setAttribute('data-v', r.ejecutado);
+    b.textContent = r.ejecutado === 'SI' ? 'SÍ' : 'NO';
+    b.setAttribute('aria-label','Ejecutado: ' + (r.ejecutado==='SI'?'sí':'no') + '. Tocar para cambiar');
+    tr.appendChild(celda('c-estado','Ejecutado', b));
+
+    tr.appendChild(celda('c-rubro','Rubro', campoInput(r,'rubro','text','dl-rubro','Rubro')));
+    tr.appendChild(celda('c-contratista','Contratista', campoInput(r,'contratista','text','dl-contratista','Contratista')));
+    tr.appendChild(celda('c-ingresado','Ingresado por', campoInput(r,'ingresado','text','dl-ingresado','Ingresado por')));
+
+    var cf = document.createElement('div'); cf.className = 'fotos';
+    (r.fotos || []).forEach(function(id){
+      var im = document.createElement('img'); im.className = 'mini'; im.alt = 'Foto de la tarea';
+      im.setAttribute('data-act','ver'); im.setAttribute('data-foto', id);
+      if (photoCache[id]) im.src = photoCache[id].data;
+      cf.appendChild(im);
+    });
+    [['Cámara', true], ['Galería', false]].forEach(function(o){
+      var lb = document.createElement('label'); lb.className = 'btn-foto'; lb.appendChild(document.createTextNode(o[0]));
+      var fi = document.createElement('input'); fi.type = 'file'; fi.accept = 'image/*';
+      if (o[1]) fi.setAttribute('capture', 'environment'); else fi.multiple = true;
+      fi.className = 'file';
+      fi.setAttribute('aria-label', o[1] ? 'Sacar una foto con la cámara' : 'Elegir fotos de la galería');
+      lb.appendChild(fi); cf.appendChild(lb);
+    });
+    tr.appendChild(celda('c-fotos','Fotos', cf));
+
+    var x = document.createElement('button');
+    x.type = 'button'; x.className = 'borrar'; x.setAttribute('data-act','borrar');
+    x.setAttribute('aria-label','Eliminar tarea'); x.innerHTML = '&times;';
+    tr.appendChild(celda('c-acc','', x));
+    return tr;
+  }
+
+  function autoAlto(ta){
+    ta.style.height = 'auto';
+    ta.style.height = (ta.scrollHeight + 2) + 'px';
+  }
+
+  function render(){
+    tbody.innerHTML = '';
+    var frag = document.createDocumentFragment();
+    var n = 0;
+    state.rows.forEach(function(r){
+      if (!visible(r)) return;
+      frag.appendChild(crearFila(r)); n++;
+    });
+    tbody.appendChild(frag);
+    tbody.querySelectorAll('textarea').forEach(autoAlto);
+    $('#vacio').textContent = state.rows.length ? 'No hay tareas con estos filtros.' : 'Todavía no hay tareas. Tocá "+ Nueva tarea" para empezar.';
+    $('#vacio').hidden = n > 0;
+    actualizarResumen();
+  }
+
+  function buscar(id){
+    for (var i=0;i<state.rows.length;i++) if (state.rows[i].id == id) return state.rows[i];
+    return null;
+  }
+
+  // Edición de campos
+  tbody.addEventListener('input', function(e){
+    var el = e.target, f = el.getAttribute('data-f');
+    if (!f) return;
+    var tr = el.closest('tr'), r = buscar(tr.getAttribute('data-id'));
+    if (!r) return;
+    r[f] = el.value;
+    if (el.tagName === 'TEXTAREA') autoAlto(el);
+    guardar();
+  });
+  tbody.addEventListener('change', function(e){
+    if (e.target.type === 'file'){
+      var lista = Array.prototype.slice.call(e.target.files);
+      var rf = buscar(e.target.closest('tr').getAttribute('data-id'));
+      e.target.value = '';
+      if (rf && lista.length) agregarFotos(rf, lista);
+      return;
+    }
+    var f = e.target.getAttribute('data-f');
+    if (f === 'rubro' || f === 'contratista' || f === 'ambiente' || f === 'ingresado') actualizarListas();
+    if (f === 'rubro' && filtro.rubro) render();
+  });
+
+  tbody.addEventListener('click', function(e){
+    var btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    var tr = btn.closest('tr'), r = buscar(tr.getAttribute('data-id'));
+    if (!r) return;
+    if (btn.getAttribute('data-act') === 'toggle'){
+      r.ejecutado = r.ejecutado === 'SI' ? 'NO' : 'SI';
+      guardar(); render();
+    } else if (btn.getAttribute('data-act') === 'ver'){
+      abrirFoto(r, btn.getAttribute('data-foto'));
+    } else if (btn.getAttribute('data-act') === 'borrar'){
+      if (confirm('¿Eliminar la tarea "' + (r.tarea || 'sin título') + '"?')){
+        (r.fotos || []).forEach(quitarFotoDB);
+        state.rows = state.rows.filter(function(x){ return x.id !== r.id; });
+        guardar(); actualizarListas(); render();
+      }
+    }
+  });
+
+  // Encabezado editable
+  document.querySelectorAll('[data-meta]').forEach(function(i){
+    i.value = state.meta[i.getAttribute('data-meta')] || '';
+    i.addEventListener('input', function(){
+      state.meta[i.getAttribute('data-meta')] = i.value; guardar();
+    });
+  });
+
+  // Filtros
+  document.querySelectorAll('[data-estado]').forEach(function(b){
+    b.addEventListener('click', function(){
+      filtro.estado = b.getAttribute('data-estado');
+      document.querySelectorAll('[data-estado]').forEach(function(x){
+        x.setAttribute('aria-pressed', x === b ? 'true' : 'false');
+      });
+      render();
+    });
+  });
+  $('#f-rubro').addEventListener('change', function(e){ filtro.rubro = e.target.value; render(); });
+  $('#f-texto').addEventListener('input', function(e){ filtro.texto = e.target.value; render(); });
+
+  // Nueva tarea
+  $('#agregar').addEventListener('click', function(){
+    var base = state.rows.length ? state.rows[state.rows.length-1] : {};
+    var r = {
+      id: state.nextId || (state.rows.length + 1),
+      fecha: hoyISO(), tarea:'', piso: base.piso || '', unidad: base.unidad || '',
+      ambiente:'', ejecutado:'NO', rubro:'', contratista:'', ingresado: base.ingresado || ''
+    };
+    state.nextId = r.id + 1;
+    state.rows.push(r);
+    // Para que la nueva fila se vea, se limpian los filtros que la ocultarían
+    if (filtro.estado === 'SI') { filtro.estado = 'todas';
+      document.querySelectorAll('[data-estado]').forEach(function(x){
+        x.setAttribute('aria-pressed', x.getAttribute('data-estado')==='todas' ? 'true':'false');
+      });
+    }
+    filtro.rubro = ''; filtro.texto = ''; $('#f-texto').value = '';
+    guardar(); actualizarListas(); render();
+    var nueva = tbody.querySelector('tr[data-id="'+r.id+'"] textarea');
+    if (nueva){ nueva.focus(); nueva.scrollIntoView({block:'center', behavior:'smooth'}); }
+  });
+
+  // Exportar CSV (respeta los filtros activos)
+  function fechaAR(iso){
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||'');
+    return m ? (parseInt(m[3],10)+'/'+parseInt(m[2],10)+'/'+m[1]) : (iso||'');
+  }
+  function csvCelda(v){ v = String(v==null?'':v); return /[";\n\r]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
+  $('#csv').addEventListener('click', function(){
+    var cab = ['Fecha','Tarea','Piso','Unidad','Ambiente','Ejecutado','Rubro','Contratista','Ingresado'];
+    var lineas = [cab.join(';')];
+    state.rows.filter(visible).forEach(function(r){
+      lineas.push([fechaAR(r.fecha),r.tarea,r.piso,r.unidad,r.ambiente,r.ejecutado,r.rubro,r.contratista,r.ingresado].map(csvCelda).join(';'));
+    });
+    var blob = new Blob(['\ufeff'+lineas.join('\r\n')], {type:'text/csv;charset=utf-8'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'checklist-' + slugTab() + '-' + hoyISO() + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+  });
+
+  actualizarListas();
+  render();
+
+  // ---- Pestañas (un checklist por rubro) ----
+  function sincronizar(){ var t = tabActiva(); t.rows = state.rows; t.nextId = state.nextId; }
+  function slugTab(){
+    return norm(tabActiva().nombre).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'tareas';
+  }
+  function irATab(id){
+    sincronizar(); state.activa = id;
+    var t = tabActiva(); state.rows = t.rows; state.nextId = t.nextId;
+    filtro.rubro = ''; filtro.texto = ''; $('#f-texto').value = '';
+    guardar(); actualizarListas(); render(); renderTabs();
+  }
+  function nuevaTab(){
+    var n = prompt('Nombre de la nueva pestaña (por ejemplo: Albañilería)', '');
+    if (n === null) return;
+    n = n.trim() || ('Pestaña ' + (state.tabs.length + 1));
+    sincronizar();
+    var id = Math.max.apply(null, state.tabs.map(function(t){ return t.id; })) + 1;
+    state.tabs.push({ id:id, nombre:n.slice(0, 30), rows:[], nextId:1 });
+    irATab(id);
+  }
+  function borrarTab(){
+    var t = tabActiva();
+    if (!confirm('¿Eliminar la pestaña "' + t.nombre + '" con sus ' + state.rows.length + ' tareas y fotos?')) return;
+    state.rows.forEach(function(r){ (r.fotos || []).forEach(quitarFotoDB); });
+    state.tabs = state.tabs.filter(function(x){ return x.id !== t.id; });
+    var n = state.tabs[0]; state.activa = n.id; state.rows = n.rows; state.nextId = n.nextId;
+    filtro.rubro = ''; filtro.texto = ''; $('#f-texto').value = '';
+    guardar(); actualizarListas(); render(); renderTabs();
+  }
+  function renderTabs(){
+    var nav = $('#tabs'); nav.innerHTML = '';
+    state.tabs.forEach(function(t){
+      if (t.id === state.activa) {
+        var d = document.createElement('div'); d.className = 'tab act';
+        var i = document.createElement('input');
+        i.value = t.nombre; i.maxLength = 30; i.autocomplete = 'off';
+        i.setAttribute('aria-label', 'Nombre de la pestaña (tocá para renombrar)');
+        i.size = Math.max(6, t.nombre.length + 1);
+        i.addEventListener('input', function(){ t.nombre = i.value; i.size = Math.max(6, i.value.length + 1); guardar(); });
+        i.addEventListener('blur', function(){ if (!i.value.trim()) { t.nombre = 'Sin nombre'; i.value = t.nombre; guardar(); } });
+        d.appendChild(i);
+        if (state.tabs.length > 1) {
+          var x = document.createElement('button'); x.type = 'button'; x.innerHTML = '&times;';
+          x.setAttribute('aria-label', 'Eliminar pestaña'); x.addEventListener('click', borrarTab);
+          d.appendChild(x);
+        }
+        nav.appendChild(d);
+      } else {
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'tab'; b.textContent = t.nombre;
+        b.addEventListener('click', function(){ irATab(t.id); });
+        nav.appendChild(b);
+      }
+    });
+    var m = document.createElement('button'); m.type = 'button'; m.className = 'tab mas'; m.textContent = '+ Pestaña';
+    m.addEventListener('click', nuevaTab);
+    nav.appendChild(m);
+  }
+  renderTabs();
+
+  // ---- Fotos por tarea (se guardan en IndexedDB, comprimidas) ----
+  var dbp;
+  try {
+    dbp = new Promise(function(res, rej){
+      var rq = indexedDB.open('3df-checklist-fotos', 1);
+      rq.onupgradeneeded = function(){ rq.result.createObjectStore('fotos', { keyPath:'id' }); };
+      rq.onsuccess = function(){ res(rq.result); };
+      rq.onerror = function(){ rej(rq.error); };
+    });
+  } catch(e){ dbp = Promise.reject(e); }
+  dbp.catch(function(){});
+
+  function dbOp(modo, fn){
+    return dbp.then(function(db){
+      return new Promise(function(res, rej){
+        var tx = db.transaction('fotos', modo), rq = fn(tx.objectStore('fotos'));
+        tx.oncomplete = function(){ res(rq && rq.result); };
+        tx.onerror = function(){ rej(tx.error); };
+      });
+    });
+  }
+  function quitarFotoDB(id){ delete photoCache[id]; dbOp('readwrite', function(s){ return s.delete(id); }).catch(function(){}); }
+
+  function comprimir(file){
+    return new Promise(function(res, rej){
+      var u = URL.createObjectURL(file), im = new Image();
+      im.onload = function(){
+        var s = Math.min(1, 1280 / Math.max(im.naturalWidth, im.naturalHeight));
+        var w = Math.round(im.naturalWidth * s), h = Math.round(im.naturalHeight * s);
+        var c = document.createElement('canvas'); c.width = w; c.height = h;
+        var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0,0,w,h); g.drawImage(im,0,0,w,h);
+        URL.revokeObjectURL(u);
+        res({ data: c.toDataURL('image/jpeg', 0.72), w: w, h: h });
+      };
+      im.onerror = function(){ URL.revokeObjectURL(u); rej(new Error('imagen')); };
+      im.src = u;
+    });
+  }
+
+  function agregarFotos(r, archivos){
+    r.fotos = r.fotos || [];
+    var p = Promise.resolve();
+    archivos.forEach(function(f, i){
+      p = p.then(function(){ return comprimir(f); }).then(function(c){ return editarFoto(c, i + 1, archivos.length); }).then(function(c){
+        if (!c) return;
+        var id = 'f' + Date.now() + Math.random().toString(36).slice(2,7);
+        var rec = { id:id, data:c.data, w:c.w, h:c.h };
+        return dbOp('readwrite', function(s){ return s.put(rec); }).then(function(){
+          photoCache[id] = rec; r.fotos.push(id); guardar();
+        });
+      });
+    });
+    p.catch(function(){ alert('No se pudo guardar alguna foto en este dispositivo.'); }).then(render);
+  }
+
+  dbOp('readonly', function(s){ return s.getAll(); }).then(function(todas){
+    (todas || []).forEach(function(f){ photoCache[f.id] = f; });
+    render();
+  }).catch(function(){});
+
+  var visor = document.createElement('div');
+  visor.id = 'visor'; visor.hidden = true;
+  var visorImg = document.createElement('img'); visorImg.alt = 'Foto ampliada';
+  var visorBtns = document.createElement('div');
+  var bDel = document.createElement('button'); bDel.type = 'button'; bDel.className = 'btn'; bDel.textContent = 'Eliminar foto';
+  var bCer = document.createElement('button'); bCer.type = 'button'; bCer.className = 'btn'; bCer.textContent = 'Cerrar';
+  visorBtns.appendChild(bDel); visorBtns.appendChild(bCer);
+  visor.appendChild(visorImg); visor.appendChild(visorBtns);
+  document.body.appendChild(visor);
+  var actual = null;
+  function abrirFoto(r, id){
+    if (!photoCache[id]) return;
+    actual = { r:r, id:id }; visorImg.src = photoCache[id].data; visor.hidden = false;
+  }
+  function cerrarVisor(){ visor.hidden = true; visorImg.removeAttribute('src'); actual = null; }
+  bCer.addEventListener('click', cerrarVisor);
+  visor.addEventListener('click', function(e){ if (e.target === visor) cerrarVisor(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !visor.hidden) cerrarVisor(); });
+  bDel.addEventListener('click', function(){
+    if (!actual || !confirm('¿Eliminar esta foto?')) return;
+    actual.r.fotos = actual.r.fotos.filter(function(x){ return x !== actual.id; });
+    quitarFotoDB(actual.id); guardar(); cerrarVisor(); render();
+  });
+
+  // ---- Editor de fotos con lápiz ----
+  var edOv = document.createElement('div');
+  edOv.id = 'editor'; edOv.hidden = true;
+  var edTit = document.createElement('p'); edTit.className = 'ed-tit';
+  var edLz = document.createElement('div'); edLz.className = 'ed-lienzo';
+  var cv = document.createElement('canvas'); edLz.appendChild(cv);
+  var edTools = document.createElement('div'); edTools.className = 'ed-barra';
+  var edAcc = document.createElement('div'); edAcc.className = 'ed-barra';
+  edOv.appendChild(edTit); edOv.appendChild(edLz); edOv.appendChild(edTools); edOv.appendChild(edAcc);
+  document.body.appendChild(edOv);
+
+  var cx = cv.getContext('2d'), edImg = null, edRes = null, edC = null, trazos = [], dibujando = null;
+  var lapiz = { color:'#e11d1d', grosor:0.009 };
+
+  function pintarTrazo(s){
+    cx.strokeStyle = s.color; cx.lineWidth = s.w; cx.lineCap = 'round'; cx.lineJoin = 'round';
+    cx.beginPath();
+    s.pts.forEach(function(p, i){ if (i === 0) cx.moveTo(p[0], p[1]); else cx.lineTo(p[0], p[1]); });
+    if (s.pts.length === 1) cx.lineTo(s.pts[0][0] + 0.01, s.pts[0][1]);
+    cx.stroke();
+  }
+  function redibujar(){
+    cx.drawImage(edImg, 0, 0, cv.width, cv.height);
+    trazos.forEach(pintarTrazo);
+  }
+  function punto(e){
+    var r = cv.getBoundingClientRect();
+    return [(e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height];
+  }
+  cv.addEventListener('pointerdown', function(e){
+    if (!edImg) return;
+    e.preventDefault();
+    try { cv.setPointerCapture(e.pointerId); } catch(x){}
+    dibujando = { color:lapiz.color, w:Math.max(3, Math.round(cv.width * lapiz.grosor)), pts:[punto(e)] };
+    trazos.push(dibujando); pintarTrazo(dibujando);
+  });
+  cv.addEventListener('pointermove', function(e){
+    if (!dibujando) return;
+    e.preventDefault();
+    var p = punto(e), a = dibujando.pts[dibujando.pts.length - 1];
+    dibujando.pts.push(p);
+    cx.strokeStyle = dibujando.color; cx.lineWidth = dibujando.w; cx.lineCap = 'round'; cx.lineJoin = 'round';
+    cx.beginPath(); cx.moveTo(a[0], a[1]); cx.lineTo(p[0], p[1]); cx.stroke();
+  });
+  function soltar(){ dibujando = null; }
+  cv.addEventListener('pointerup', soltar);
+  cv.addEventListener('pointercancel', soltar);
+
+  function boton(txt, clase, fn){
+    var b = document.createElement('button'); b.type = 'button'; b.className = clase; b.textContent = txt;
+    b.addEventListener('click', fn); return b;
+  }
+  var swatches = [];
+  [['#e11d1d','Rojo'],['#ffd400','Amarillo'],['#000000','Negro'],['#ffffff','Blanco']].forEach(function(c){
+    var b = boton('', 'sw', function(){
+      lapiz.color = c[0]; swatches.forEach(function(s){ s.setAttribute('aria-pressed', s === b ? 'true' : 'false'); });
+    });
+    b.style.background = c[0]; b.setAttribute('aria-label', c[1]); b.setAttribute('aria-pressed', c[0] === lapiz.color ? 'true' : 'false');
+    swatches.push(b); edTools.appendChild(b);
+  });
+  var grosores = [];
+  [['Fino',0.004],['Medio',0.009],['Grueso',0.018]].forEach(function(g){
+    var b = boton(g[0], 'btn', function(){
+      lapiz.grosor = g[1]; grosores.forEach(function(s){ s.setAttribute('aria-pressed', s === b ? 'true' : 'false'); });
+    });
+    b.setAttribute('aria-pressed', g[1] === lapiz.grosor ? 'true' : 'false');
+    grosores.push(b); edTools.appendChild(b);
+  });
+  edTools.appendChild(boton('Deshacer', 'btn', function(){ trazos.pop(); if (edImg) redibujar(); }));
+  edTools.appendChild(boton('Borrar todo', 'btn', function(){ trazos = []; if (edImg) redibujar(); }));
+  edAcc.appendChild(boton('Cancelar', 'btn', function(){ edOv.hidden = true; edImg = null; if (edRes) edRes(null); }));
+  edAcc.appendChild(boton('Guardar foto', 'btn pri', function(){
+    var salida = trazos.length ? { data: cv.toDataURL('image/jpeg', 0.8), w: cv.width, h: cv.height } : edC;
+    edOv.hidden = true; edImg = null; if (edRes) edRes(salida);
+  }));
+
+  function editarFoto(c, n, total){
+    return new Promise(function(res){
+      var im = new Image();
+      im.onload = function(){
+        cv.width = c.w; cv.height = c.h; trazos = []; dibujando = null;
+        edImg = im; edRes = res; edC = c;
+        edTit.textContent = 'Editar foto' + (total > 1 ? ' ' + n + ' de ' + total : '') + ' - dibujá con el dedo o con el lápiz. Si no hace falta, tocá Guardar foto.';
+        redibujar(); edOv.hidden = false;
+      };
+      im.onerror = function(){ res(c); };
+      im.src = c.data;
+    });
+  }
+
+  // ---- Entregar archivo: menú de compartir en el celular, descarga en la compu ----
+  function entregar(blob, nombre, tipo, titulo){
+    var archivo = new File([blob], nombre, { type:tipo });
+    if (navigator.canShare && navigator.canShare({ files:[archivo] })) {
+      navigator.share({ files:[archivo], title:titulo })
+        .catch(function(err){ if (!err || err.name !== 'AbortError') descargarArchivo(blob, nombre); });
+    } else { descargarArchivo(blob, nombre); }
+  }
+
+  // ---- Exportar Excel (.xlsx con membrete, logo, colores y fotos) ----
+  $('#xls').addEventListener('click', function(){
+    var EJ = window.ExcelJS;
+    if (!EJ) { alert('No se pudo cargar el generador de Excel. Revisá la conexión a internet y probá de nuevo.'); return; }
+    var filas = state.rows.filter(visible);
+    if (!filas.length) { alert('No hay tareas para exportar con estos filtros.'); return; }
+
+    var NEGRO = { argb:'FF000000' }, BLANCO = { argb:'FFFFFFFF' };
+    var fino = { style:'thin', color:{ argb:'FF000000' } };
+    var bordes = { top:fino, left:fino, bottom:fino, right:fino };
+    var relleno = function(c){ return { type:'pattern', pattern:'solid', fgColor:c }; };
+    var wb = new EJ.Workbook(); wb.creator = '3dF Desarrollos';
+    var pagina = { paperSize:9, orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0 };
+    var ws = wb.addWorksheet(tabActiva().nombre.replace(/[\[\]:*?\/\\]/g, '').slice(0, 31) || 'Checklist', { views:[{ state:'frozen', ySplit:7 }], pageSetup:pagina });
+    ws.columns = [14,44,7,9,18,12,20,18,24,8].map(function(w){ return { width:w }; });
+
+    // Membrete negro
+    for (var rr = 1; rr <= 3; rr++) {
+      ws.getRow(rr).height = 20;
+      for (var cc = 1; cc <= 10; cc++) ws.getCell(rr, cc).fill = relleno(NEGRO);
+    }
+    function texto(rango, valor, fuente, alin){
+      ws.mergeCells(rango);
+      var c = ws.getCell(rango.split(':')[0]);
+      c.value = valor; c.font = fuente; c.alignment = alin; c.fill = relleno(NEGRO);
+    }
+    var izq = { vertical:'middle', horizontal:'left', indent:1 }, der = { vertical:'middle', horizontal:'right' };
+    var partes = [];
+    if (filtro.estado === 'SI') partes.push('Ejecutadas'); else if (filtro.estado === 'NO') partes.push('Pendientes');
+    if (filtro.rubro) partes.push('Rubro: ' + filtro.rubro);
+    if (filtro.texto) partes.push('Búsqueda: ' + filtro.texto);
+    texto('B1:G1', 'CHECKLIST TAREAS', { name:'Arial', size:18, bold:true, color:BLANCO }, izq);
+    texto('B2:G2', 'OBRA: ' + (state.meta.obra || '') + '  -  ' + tabActiva().nombre, { name:'Arial', size:11, color:BLANCO }, izq);
+    texto('B3:G3', partes.length ? 'Filtros: ' + partes.join(' | ') : '', { name:'Arial', size:9, color:{ argb:'FFCCCCCC' } }, izq);
+    texto('H1:J1', String(state.meta.codigo || ''), { name:'Arial', size:9, bold:true, color:BLANCO }, der);
+    texto('H2:J2', 'VERSIÓN: ' + (state.meta.version || ''), { name:'Arial', size:9, color:BLANCO }, der);
+    texto('H3:J3', 'FECHA: ' + (state.meta.fecha || ''), { name:'Arial', size:9, color:BLANCO }, der);
+    if (logoPdf) {
+      var idLogo = wb.addImage({ base64: logoPdf.url, extension:'png' });
+      ws.addImage(idLogo, { tl:{ col:0.1, row:0.15 }, ext:{ width:90, height:Math.round(90 * logoPdf.h / logoPdf.w) } });
+    } else {
+      ws.getCell('A1').value = '3dF'; ws.getCell('A1').font = { name:'Arial', size:16, bold:true, color:BLANCO };
+    }
+
+    // Resumen
+    var hechas = filas.filter(function(r){ return r.ejecutado === 'SI'; }).length;
+    var pct = Math.round(hechas * 100 / filas.length);
+    ws.mergeCells('A5:J5'); ws.getRow(5).height = 22;
+    var res = ws.getCell('A5');
+    res.value = 'Tareas: ' + filas.length + '     Pendientes: ' + (filas.length - hechas) + '     Ejecutadas: ' + hechas + '     Avance: ' + pct + '%';
+    res.font = { name:'Arial', size:11, bold:true }; res.alignment = { vertical:'middle', horizontal:'left' };
+
+    // Tabla
+    var cab = ['Fecha','Tarea','Piso','Unidad','Ambiente','Ejecutado','Rubro','Contratista','Ingresado','Fotos'];
+    var centrados = { 1:1, 3:1, 4:1, 6:1, 10:1 };
+    ws.getRow(7).height = 22;
+    cab.forEach(function(t, i){
+      var c = ws.getCell(7, i + 1);
+      c.value = t; c.font = { name:'Arial', size:10, bold:true, color:BLANCO };
+      c.fill = relleno(NEGRO); c.border = bordes; c.alignment = { vertical:'middle', horizontal:'center' };
+    });
+    filas.forEach(function(r, i){
+      var n = 8 + i;
+      var vals = [fechaAR(r.fecha), r.tarea, r.piso, r.unidad, r.ambiente, r.ejecutado === 'SI' ? 'SÍ' : 'NO',
+                  r.rubro, r.contratista, r.ingresado, (r.fotos || []).length];
+      ws.getRow(n).height = Math.max(18, Math.ceil(String(r.tarea || '').length / 44) * 15 + 4);
+      vals.forEach(function(v, k){
+        var c = ws.getCell(n, k + 1);
+        c.value = v; c.border = bordes;
+        c.font = { name:'Arial', size:10 };
+        c.alignment = { vertical:'middle', wrapText:true, horizontal: centrados[k + 1] ? 'center' : 'left' };
+        if (i % 2) c.fill = relleno({ argb:'FFF0F0F0' });
+        if (k === 5) {
+          c.font = { name:'Arial', size:10, bold:true, color: r.ejecutado === 'SI' ? BLANCO : NEGRO };
+          if (r.ejecutado === 'SI') c.fill = relleno(NEGRO);
+        }
+      });
+    });
+    ws.autoFilter = { from:{ row:7, column:1 }, to:{ row:7 + filas.length, column:10 } };
+    ws.pageSetup.printTitlesRow = '7:7';
+
+    // Hoja de fotos
+    if ($('#pdf-fotos').checked) {
+      var conF = filas.filter(function(r){ return (r.fotos || []).some(function(id){ return photoCache[id]; }); });
+      if (conF.length) {
+        var w2 = wb.addWorksheet('Registro fotográfico', { pageSetup:pagina });
+        w2.columns = [{ width:46 }, { width:46 }, { width:46 }];
+        w2.mergeCells('A1:C1'); w2.getRow(1).height = 26;
+        var t2 = w2.getCell('A1');
+        t2.value = 'Registro fotográfico'; t2.font = { name:'Arial', size:14, bold:true, color:BLANCO };
+        t2.fill = relleno(NEGRO); t2.alignment = { vertical:'middle', horizontal:'left', indent:1 };
+        var fila = 3;
+        conF.forEach(function(r){
+          var ids = r.fotos.filter(function(id){ return photoCache[id]; });
+          w2.mergeCells('A' + fila + ':C' + fila);
+          var tt = w2.getCell('A' + fila);
+          tt.value = (r.tarea || 'Sin título') + '  (' + [r.piso && 'Piso ' + r.piso, r.unidad && 'Unidad ' + r.unidad, r.ambiente].filter(Boolean).join(' - ') + ')';
+          tt.font = { name:'Arial', size:10, bold:true }; tt.fill = relleno({ argb:'FFE6E6E6' });
+          tt.alignment = { vertical:'middle', wrapText:true };
+          fila++;
+          var col = 0;
+          ids.forEach(function(id){
+            var f = photoCache[id], s = Math.min(320 / f.w, 240 / f.h);
+            if (col === 3) { col = 0; fila += 13; }
+            var img = wb.addImage({ base64: f.data, extension:'jpeg' });
+            w2.addImage(img, { tl:{ col: col + 0.03, row: fila - 1 }, ext:{ width: Math.round(f.w * s), height: Math.round(f.h * s) } });
+            col++;
+          });
+          fila += 14;
+        });
+      }
+    }
+
+    var tipo = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    wb.xlsx.writeBuffer().then(function(buf){
+      entregar(new Blob([buf], { type:tipo }), 'checklist-' + slugTab() + '-' + hoyISO() + '.xlsx', tipo, 'Checklist de tareas - ' + (state.meta.obra || ''));
+    }).catch(function(){ alert('No se pudo generar el Excel. Probá de nuevo.'); });
+  });
+
+  // ---- Exportar PDF (se comparte directo a WhatsApp si el dispositivo lo permite) ----
+  var logoPdf = null;
+  (function(){
+    var im = new Image();
+    im.onload = function(){
+      try {
+        var c = document.createElement('canvas');
+        c.width = im.naturalWidth; c.height = im.naturalHeight;
+        c.getContext('2d').drawImage(im, 0, 0);
+        logoPdf = { url: c.toDataURL('image/png'), w: im.naturalWidth, h: im.naturalHeight };
+      } catch(e){}
+    };
+    im.src = 'logo.png';
+  })();
+
+  function descargarArchivo(blob, nombre){
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = nombre;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+  }
+
+  $('#pdf').addEventListener('click', function(){
+    var lib = window.jspdf && window.jspdf.jsPDF;
+    if (!lib) { alert('No se pudo cargar el generador de PDF. Revisá la conexión a internet y probá de nuevo.'); return; }
+    var filas = state.rows.filter(visible);
+    if (!filas.length) { alert('No hay tareas para exportar con estos filtros.'); return; }
+
+    var doc = new lib({ orientation:'landscape', unit:'mm', format:'a4' });
+    if (typeof doc.autoTable !== 'function') { alert('No se pudo cargar el generador de tablas. Probá de nuevo.'); return; }
+    var W = doc.internal.pageSize.getWidth();
+    var M = 10;
+
+    // Banda negra con logo y datos del documento
+    doc.setFillColor(0,0,0); doc.rect(0,0,W,24,'F');
+    var x = M;
+    if (logoPdf) {
+      var alto = 16, ancho = alto * logoPdf.w / logoPdf.h;
+      doc.addImage(logoPdf.url, 'PNG', M, 4, ancho, alto);
+      x = M + ancho + 8;
+    } else {
+      doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(14);
+      doc.text('3dF DESARROLLOS', M, 14); x = M + 52;
+    }
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold'); doc.setFontSize(16);
+    doc.text('CHECKLIST TAREAS', x, 12);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10);
+    doc.text('OBRA: ' + (state.meta.obra || '') + '  -  ' + tabActiva().nombre, x, 19);
+    doc.setFontSize(8);
+    doc.text(String(state.meta.codigo || ''), W - M, 8, { align:'right' });
+    doc.text('VERSIÓN: ' + (state.meta.version || ''), W - M, 13, { align:'right' });
+    doc.text('FECHA: ' + (state.meta.fecha || ''), W - M, 18, { align:'right' });
+
+    // Resumen y filtros aplicados
+    var hechas = filas.filter(function(r){ return r.ejecutado === 'SI'; }).length;
+    var pct = Math.round(hechas * 100 / filas.length);
+    var partes = [];
+    if (filtro.estado === 'SI') partes.push('Ejecutadas');
+    else if (filtro.estado === 'NO') partes.push('Pendientes');
+    if (filtro.rubro) partes.push('Rubro: ' + filtro.rubro);
+    if (filtro.texto) partes.push('Búsqueda: ' + filtro.texto);
+    doc.setTextColor(0,0,0); doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.text('Tareas: ' + filas.length + '    Pendientes: ' + (filas.length - hechas) +
+             '    Ejecutadas: ' + hechas + '    Avance: ' + pct + '%', M, 32);
+    if (partes.length) {
+      doc.setFont('helvetica','normal'); doc.setFontSize(9);
+      doc.text('Filtros: ' + partes.join(' | '), W - M, 32, { align:'right' });
+    }
+
+    var cuerpo = filas.map(function(r){
+      return [fechaAR(r.fecha), r.tarea, r.piso, r.unidad, r.ambiente,
+              r.ejecutado === 'SI' ? 'SÍ' : 'NO', r.rubro, r.contratista, r.ingresado];
+    });
+
+    doc.autoTable({
+      startY: 36,
+      head: [['Fecha','Tarea','Piso','Unidad','Ambiente','Ejecutado','Rubro','Contratista','Ingresado']],
+      body: cuerpo,
+      margin: { left: M, right: M, bottom: 14 },
+      styles: { font:'helvetica', fontSize:8, cellPadding:2, lineColor:[0,0,0], lineWidth:0.2, textColor:[0,0,0], valign:'middle' },
+      headStyles: { fillColor:[0,0,0], textColor:[255,255,255], fontStyle:'bold' },
+      alternateRowStyles: { fillColor:[240,240,240] },
+      columnStyles: {
+        0:{ cellWidth:20 }, 2:{ cellWidth:12, halign:'center' }, 3:{ cellWidth:14, halign:'center' },
+        4:{ cellWidth:28 }, 5:{ cellWidth:20, halign:'center' }, 6:{ cellWidth:30 }, 7:{ cellWidth:28 }, 8:{ cellWidth:34 }
+      },
+      didParseCell: function(d){
+        if (d.section === 'body' && d.column.index === 5) {
+          if (d.cell.raw === 'SÍ') { d.cell.styles.fillColor = [0,0,0]; d.cell.styles.textColor = [255,255,255]; }
+          d.cell.styles.fontStyle = 'bold';
+        }
+      },
+      didDrawPage: function(){
+        var h = doc.internal.pageSize.getHeight();
+        doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(110,110,110);
+        doc.text('3dF Desarrollos - ' + (state.meta.obra || ''), M, h - 6);
+        doc.text('Página ' + doc.internal.getNumberOfPages(), W - M, h - 6, { align:'right' });
+      }
+    });
+
+    if ($('#pdf-fotos').checked) {
+      var conF = filas.filter(function(r){ return (r.fotos || []).some(function(id){ return photoCache[id]; }); });
+      if (conF.length) {
+        var H = doc.internal.pageSize.getHeight(), py, px, bw = 88, bh = 66, gap = 6;
+        doc.addPage(); py = M + 4;
+        doc.setTextColor(0,0,0); doc.setFont('helvetica','bold'); doc.setFontSize(13);
+        doc.text('Registro fotográfico', M, py); py += 8;
+        conF.forEach(function(r){
+          var ids = r.fotos.filter(function(id){ return photoCache[id]; });
+          var tit = (r.tarea || 'Sin título') + '  (' + [r.piso && 'Piso ' + r.piso, r.unidad && 'Unidad ' + r.unidad, r.ambiente].filter(Boolean).join(' - ') + ')';
+          if (py + 14 > H - 14) { doc.addPage(); py = M + 4; }
+          doc.setFont('helvetica','bold'); doc.setFontSize(10);
+          var ls = doc.splitTextToSize(tit, W - 2 * M); doc.text(ls, M, py); py += ls.length * 4.5 + 2;
+          px = M;
+          ids.forEach(function(id){
+            var f = photoCache[id], s = Math.min(bw / f.w, bh / f.h);
+            if (px + bw > W - M + 0.1) { px = M; py += bh + gap; }
+            if (py + bh > H - 14) { doc.addPage(); py = M + 4; px = M; }
+            doc.addImage(f.data, 'JPEG', px, py, f.w * s, f.h * s);
+            px += bw + gap;
+          });
+          py += bh + gap + 2;
+        });
+      }
+    }
+    var nombre = 'checklist-' + slugTab() + '-' + hoyISO() + '.pdf';
+    var blob = doc.output('blob');
+    var archivo = new File([blob], nombre, { type:'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files:[archivo] })) {
+      navigator.share({ files:[archivo], title:'Checklist de tareas - ' + (state.meta.obra || '') })
+        .catch(function(err){ if (!err || err.name !== 'AbortError') descargarArchivo(blob, nombre); });
+    } else {
+      descargarArchivo(blob, nombre);
+    }
+  });
+
+  // ---- Cuenta Google y sincronización local-first con Google Drive ----
+  // Pegá acá el "ID de cliente" OAuth (tipo "Aplicación web") de tu proyecto de Google Cloud.
+  // No es un secreto: es un identificador público. Ver SETUP-GOOGLE.md.
+  var GOOGLE_CLIENT_ID = '998929723356-hdjao8aaqovh9ki23tdq3g7ofuf0hq48.apps.googleusercontent.com';
+  var DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+  var CARPETA = '3dF Checklist', ARCHIVO = 'checklist.xlsx', CARPETA_FOTOS = 'fotos';
+  var FOLDER_MIME = 'application/vnd.google-apps.folder';
+  var XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  var DRIVE = 'https://www.googleapis.com/drive/v3/files';
+  var UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
+  var LS = { change:'3df-checklist-local-change', sync:'3df-checklist-last-sync', remote:'3df-gdrive-remote-modified',
+             ids:'3df-gdrive-ids', fotos:'3df-gdrive-fotos', linked:'3df-gdrive-vinculado', token:'3df-gdrive-token' };
+  function lsGet(k, def){ try { var v = localStorage.getItem(k); return v == null ? def : JSON.parse(v); } catch(e){ return def; } }
+  function lsSet(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+
+  var accessToken = null, tokenExp = 0, cloudUser = null, syncTimer = null, syncing = false;
+  var lastLocalChange = Number(lsGet(LS.change, 0)) || 0;
+  var lastCloudSync = Number(lsGet(LS.sync, 0)) || 0;
+  var lastRemoteModified = lsGet(LS.remote, '') || '';
+  var driveIds = lsGet(LS.ids, {}) || {};   // { email, folder, fotos, file }
+  var fotoMap = lsGet(LS.fotos, {}) || {};  // id de foto local -> id de archivo en Drive
+  try { var tk = JSON.parse(sessionStorage.getItem(LS.token) || 'null'); if (tk && tk.e > Date.now()) { accessToken = tk.t; tokenExp = tk.e; } } catch(e){}
+
+  var nubeModal = document.getElementById('nube-modal');
+  var nubeEstado = document.getElementById('estado-nube');
+  var nubeMensaje = document.getElementById('nube-mensaje');
+  var nubeSetup = document.getElementById('nube-setup');
+  var nubeCarpeta = document.getElementById('nube-carpeta');
+  function mensajeNube(s){ if (nubeMensaje) nubeMensaje.textContent = s || ''; }
+  function estadoNube(s){ if (nubeEstado) nubeEstado.textContent = s; }
+  function linkCarpeta(){
+    if (driveIds.folder && cloudUser) { nubeCarpeta.href = 'https://drive.google.com/drive/folders/' + driveIds.folder; nubeCarpeta.hidden = false; }
+    else nubeCarpeta.hidden = true;
+  }
+  function abrirNube(){
+    nubeModal.hidden = false;
+    nubeSetup.hidden = !!GOOGLE_CLIENT_ID;
+    linkCarpeta();
+    if (!GOOGLE_CLIENT_ID) mensajeNube('La sincronización con Google Drive todavía no está configurada. La app funciona igual en este dispositivo.');
+    else if (cloudUser) mensajeNube('Sesión iniciada: ' + cloudUser.email);
+    else if (lsGet(LS.linked, false)) mensajeNube('Tocá "Sincronizar ahora" para reconectar con Google Drive.');
+    else mensajeNube('Iniciá sesión con tu cuenta de Google.');
+  }
+  function cerrarNube(){ nubeModal.hidden = true; }
+  document.getElementById('cuenta-nube').addEventListener('click', abrirNube);
+  document.getElementById('nube-cerrar').addEventListener('click', cerrarNube);
+  nubeModal.addEventListener('click', function(e){ if (e.target === nubeModal) cerrarNube(); });
+
+  // --- Google Identity Services (token de acceso para Drive) ---
+  function asegurarGIS(){
+    return new Promise(function(res, rej){
+      var n = 0;
+      (function esperar(){
+        if (window.google && google.accounts && google.accounts.oauth2) return res();
+        if (++n > 40) return rej(new Error('No se pudo cargar el inicio de sesión de Google. Revisá la conexión.'));
+        setTimeout(esperar, 200);
+      })();
+    });
+  }
+  function pedirToken(prompt){
+    return asegurarGIS().then(function(){
+      return new Promise(function(res, rej){
+        var cliente = google.accounts.oauth2.initTokenClient({
+          client_id: GOOGLE_CLIENT_ID, scope: DRIVE_SCOPE,
+          callback: function(r){
+            if (!r || r.error) return rej(new Error((r && (r.error_description || r.error)) || 'Google no dio acceso.'));
+            accessToken = r.access_token; tokenExp = Date.now() + ((Number(r.expires_in) || 3600) * 1000) - 60000;
+            try { sessionStorage.setItem(LS.token, JSON.stringify({ t:accessToken, e:tokenExp })); } catch(e){}
+            lsSet(LS.linked, true);
+            res(accessToken);
+          },
+          error_callback: function(e){
+            rej(new Error(e && e.type === 'popup_closed' ? 'Se cerró la ventana de Google sin iniciar sesión.' : 'No se pudo abrir la ventana de Google (¿bloqueador de ventanas emergentes?).'));
+          }
+        });
+        var op = { prompt: prompt };
+        if (driveIds.email && prompt !== 'select_account') op.hint = driveIds.email;
+        cliente.requestAccessToken(op);
+      });
+    });
+  }
+  function tokenValido(){ return !!accessToken && Date.now() < tokenExp; }
+  function errAuth(){ var e = new Error('La sesión de Google venció. Tocá "Sincronizar ahora" para reconectar.'); e.auth = true; return e; }
+
+  // --- Drive REST v3 ---
+  function api(url, opts){
+    opts = opts || {}; opts.headers = opts.headers || {};
+    opts.headers.Authorization = 'Bearer ' + accessToken;
+    return fetch(url, opts).then(function(r){
+      if (r.status === 401) { accessToken = null; tokenExp = 0; try { sessionStorage.removeItem(LS.token); } catch(e){} throw errAuth(); }
+      if (!r.ok) return r.text().then(function(t){ var e = new Error('Google Drive respondió ' + r.status + ': ' + t.slice(0, 160)); e.status = r.status; throw e; });
+      return r;
+    });
+  }
+  function json(r){ return r.json(); }
+  function comillas(s){ return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+  function buscarArchivo(nombre, padre, mime){
+    var q = "name='" + comillas(nombre) + "' and trashed=false and '" + padre + "' in parents" + (mime ? " and mimeType='" + mime + "'" : '');
+    return api(DRIVE + '?spaces=drive&pageSize=10&orderBy=modifiedTime desc&q=' + encodeURIComponent(q) + '&fields=' + encodeURIComponent('files(id,name,modifiedTime)'))
+      .then(json).then(function(j){ return (j.files || [])[0] || null; });
+  }
+  function crearCarpeta(nombre, padre){
+    return api(DRIVE + '?fields=id', { method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ name:nombre, mimeType:FOLDER_MIME, parents:[padre] }) }).then(json).then(function(j){ return j.id; });
+  }
+  function infoArchivo(id){
+    if (!id) return Promise.resolve(null);
+    return api(DRIVE + '/' + id + '?fields=id,modifiedTime,trashed').then(json)
+      .then(function(j){ return j.trashed ? null : j; })
+      .catch(function(e){ if (e.auth) throw e; return null; });
+  }
+  function carpetaHija(idGuardado, nombre, padre){
+    return infoArchivo(idGuardado).then(function(f){
+      if (f) return f.id;
+      return buscarArchivo(nombre, padre, FOLDER_MIME).then(function(x){ return x ? x.id : crearCarpeta(nombre, padre); });
+    });
+  }
+  function asegurarCarpetas(){
+    var fotosAntes = driveIds.fotos;
+    return carpetaHija(driveIds.folder, CARPETA, 'root').then(function(id){
+      if (id !== driveIds.folder) { driveIds.file = null; driveIds.fotos = null; }
+      driveIds.folder = id;
+      return carpetaHija(driveIds.fotos, CARPETA_FOTOS, id);
+    }).then(function(fid){
+      if (fotosAntes && fid !== fotosAntes) { fotoMap = {}; lsSet(LS.fotos, fotoMap); }
+      driveIds.fotos = fid; lsSet(LS.ids, driveIds);
+    });
+  }
+  function archivoRemoto(){
+    return infoArchivo(driveIds.file).then(function(f){ return f || buscarArchivo(ARCHIVO, driveIds.folder); })
+      .then(function(f){ driveIds.file = f ? f.id : null; lsSet(LS.ids, driveIds); return f; });
+  }
+  function subirMultipart(meta, blob){
+    var fd = new FormData();
+    fd.append('metadata', new Blob([JSON.stringify(meta)], { type:'application/json' }));
+    fd.append('file', blob);
+    return api(UPLOAD + '?uploadType=multipart&fields=id,modifiedTime', { method:'POST', body:fd }).then(json);
+  }
+  function cargarUsuario(){
+    return api('https://www.googleapis.com/drive/v3/about?fields=' + encodeURIComponent('user(emailAddress,displayName)')).then(json).then(function(j){
+      var email = (j.user && j.user.emailAddress) || '';
+      if (driveIds.email && email && driveIds.email !== email) {
+        // Otra cuenta de Google en este dispositivo: empezar la vinculación de cero.
+        driveIds = {}; fotoMap = {}; lastCloudSync = 0; lastRemoteModified = '';
+        lsSet(LS.fotos, fotoMap); lsSet(LS.sync, 0); lsSet(LS.remote, '');
+      }
+      driveIds.email = email; lsSet(LS.ids, driveIds);
+      cloudUser = { email: email, nombre: (j.user && j.user.displayName) || '' };
+    });
+  }
+
+  // --- Utilidades de datos y fotos ---
+  function filasDeTodasLasPestanas(){
+    var out = [];
+    (state.tabs || []).forEach(function(t){ (t.rows || []).forEach(function(r){ out.push(r); }); });
+    return out;
+  }
+  function idsFotos(){
+    var seen = {}, out = [];
+    filasDeTodasLasPestanas().forEach(function(r){
+      (r.fotos || []).forEach(function(id){ if (!seen[id]) { seen[id] = true; out.push(id); } });
+    });
+    return out;
+  }
+  function dataUrlBlob(dataUrl){
+    var parts = dataUrl.split(',');
+    var mime = (parts[0].match(/:(.*?);/) || [, 'image/jpeg'])[1];
+    var binary = atob(parts[1]), len = binary.length, bytes = new Uint8Array(len);
+    for (var i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type:mime });
+  }
+  function blobDataUrl(blob){
+    return new Promise(function(resolve, reject){
+      var fr = new FileReader(); fr.onload = function(){ resolve(fr.result); }; fr.onerror = reject; fr.readAsDataURL(blob);
+    });
+  }
+  function dimensiones(dataUrl){
+    return new Promise(function(resolve){
+      var im = new Image();
+      im.onload = function(){ resolve({ w:im.naturalWidth || 800, h:im.naturalHeight || 600 }); };
+      im.onerror = function(){ resolve({ w:800, h:600 }); };
+      im.src = dataUrl;
+    });
+  }
+  function subirFotos(){
+    return idsFotos().reduce(function(p, id){
+      return p.then(function(){
+        var f = photoCache[id];
+        if (!f || fotoMap[id]) return;
+        return subirMultipart({ name:id + '.jpg', mimeType:'image/jpeg', parents:[driveIds.fotos] }, dataUrlBlob(f.data))
+          .then(function(j){ fotoMap[id] = j.id; lsSet(LS.fotos, fotoMap); });
+      });
+    }, Promise.resolve());
+  }
+  function bajarFoto(idLocal, idDrive){
+    return api(DRIVE + '/' + idDrive + '?alt=media').then(function(r){ return r.blob(); }).then(blobDataUrl).then(function(data){
+      return dimensiones(data).then(function(d){
+        var rec = { id:idLocal, data:data, w:d.w, h:d.h };
+        return dbOp('readwrite', function(s){ return s.put(rec); }).then(function(){ photoCache[idLocal] = rec; });
+      });
+    });
+  }
+
+  // --- Excel ↔ estado ---
+  var COLS = ['id','tab','Pestaña','Fecha','Tarea','Piso','Unidad','Ambiente','Ejecutado','Rubro','Contratista','Ingresado','FotosIds'];
+  var ANCHOS = [7,6,16,12,44,7,9,18,11,20,18,24,40];
+  function construirExcel(){
+    var EJ = window.ExcelJS;
+    if (!EJ) return Promise.reject(new Error('No se pudo cargar el generador de Excel.'));
+    sincronizar();
+    var NEGRO = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF000000' } };
+    var wb = new EJ.Workbook(); wb.creator = '3dF Desarrollos';
+    var ws = wb.addWorksheet('Tareas', { views:[{ state:'frozen', ySplit:1 }] });
+    ws.columns = COLS.map(function(c, i){ return { header:c, key:c, width:ANCHOS[i] }; });
+    state.tabs.forEach(function(t){
+      (t.rows || []).forEach(function(r){
+        ws.addRow([r.id, t.id, t.nombre, r.fecha || '', r.tarea || '', r.piso || '', r.unidad || '', r.ambiente || '',
+                   r.ejecutado === 'SI' ? 'SI' : 'NO', r.rubro || '', r.contratista || '', r.ingresado || '',
+                   (r.fotos || []).map(function(id){ return fotoMap[id]; }).filter(Boolean).join(',')]);
+      });
+    });
+    ws.getRow(1).eachCell(function(c){ c.font = { name:'Arial', bold:true, color:{ argb:'FFFFFFFF' } }; c.fill = NEGRO; });
+    ws.autoFilter = { from:{ row:1, column:1 }, to:{ row:1, column:COLS.length } };
+    var wc = wb.addWorksheet('Config');
+    wc.columns = [{ header:'clave', width:16 }, { header:'valor', width:30 }, { header:'nombre', width:24 }, { header:'nextId', width:8 }];
+    ['obra','codigo','version','fecha'].forEach(function(k){ wc.addRow(['meta.' + k, state.meta[k] || '']); });
+    wc.addRow(['activa', state.activa]);
+    state.tabs.forEach(function(t){ wc.addRow(['tab', t.id, t.nombre, t.nextId || 1]); });
+    wc.getRow(1).eachCell(function(c){ c.font = { name:'Arial', bold:true, color:{ argb:'FFFFFFFF' } }; c.fill = NEGRO; });
+    return wb.xlsx.writeBuffer().then(function(buf){ return new Blob([buf], { type:XLSX_MIME }); });
+  }
+  function pad2(n){ return String(n).padStart(2, '0'); }
+  function valorCelda(c){
+    var v = c ? c.value : null;
+    if (v == null) return '';
+    if (v instanceof Date) return v.toISOString().slice(0, 10);
+    if (typeof v === 'object') {
+      if (v.richText) return v.richText.map(function(x){ return x.text; }).join('').trim();
+      if (v.text != null) return String(v.text).trim();
+      if (v.result != null) return v.result instanceof Date ? v.result.toISOString().slice(0, 10) : String(v.result).trim();
+      return '';
+    }
+    return String(v).trim();
+  }
+  function aFechaISO(s){
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    var m = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/.exec(s);
+    return m ? (m[3] + '-' + pad2(m[2]) + '-' + pad2(m[1])) : s;
+  }
+  function leerExcel(buf){
+    var wb = new window.ExcelJS.Workbook();
+    return wb.xlsx.load(buf).then(function(){
+      var ws = wb.getWorksheet('Tareas') || wb.worksheets[0];
+      if (!ws) throw new Error('El Excel de Drive no tiene hojas.');
+      var col = {};
+      ws.getRow(1).eachCell(function(c, n){ col[norm(valorCelda(c))] = n; });
+      if (!col[norm('Tarea')]) throw new Error('El Excel de Drive no tiene la columna "Tarea" en la fila 1.');
+      function get(row, nombre){ var n = col[norm(nombre)]; return n ? valorCelda(row.getCell(n)) : ''; }
+
+      var meta = JSON.parse(JSON.stringify(state.meta || {})), tabs = [], porId = {}, porNombre = {}, activa = null;
+      var wc = wb.getWorksheet('Config');
+      if (wc) wc.eachRow(function(row, i){
+        if (i === 1) return;
+        var k = valorCelda(row.getCell(1)), v = valorCelda(row.getCell(2));
+        if (k.indexOf('meta.') === 0) meta[k.slice(5)] = v;
+        else if (k === 'activa') activa = Number(v);
+        else if (k === 'tab' && Number(v) && !porId[Number(v)]) {
+          var t = { id:Number(v), nombre:(valorCelda(row.getCell(3)) || 'Pestaña').slice(0, 30), rows:[], nextId:Number(valorCelda(row.getCell(4))) || 1 };
+          tabs.push(t); porId[t.id] = t; porNombre[norm(t.nombre)] = t;
+        }
+      });
+      function tabPara(id, nombre){
+        var t = (id && porId[id]) || (nombre && porNombre[norm(nombre)]);
+        if (t) return t;
+        var nid = (id && !porId[id]) ? id : tabs.reduce(function(m, x){ return Math.max(m, x.id); }, 0) + 1;
+        t = { id:nid, nombre:(nombre || 'General').slice(0, 30), rows:[], nextId:1 };
+        tabs.push(t); porId[nid] = t; porNombre[norm(t.nombre)] = t;
+        return t;
+      }
+      ws.eachRow(function(row, i){
+        if (i === 1) return;
+        var r = {
+          fecha: aFechaISO(get(row, 'Fecha')), tarea: get(row, 'Tarea'), piso: get(row, 'Piso'), unidad: get(row, 'Unidad'),
+          ambiente: get(row, 'Ambiente'), ejecutado: /^(si|s|x|true|1|ok|hecho|ejecutado)$/.test(norm(get(row, 'Ejecutado'))) ? 'SI' : 'NO',
+          rubro: get(row, 'Rubro'), contratista: get(row, 'Contratista'), ingresado: get(row, 'Ingresado')
+        };
+        var fotos = get(row, 'FotosIds').split(/[,;\s]+/).filter(Boolean);
+        if (!r.tarea && !r.piso && !r.unidad && !r.ambiente && !r.rubro && !r.contratista && !fotos.length) return;
+        var t = tabPara(Number(get(row, 'tab')) || 0, get(row, 'Pestaña'));
+        var id = Number(get(row, 'id')) || 0;
+        if (t.rows.some(function(x){ return x.id === id; })) id = 0;
+        r.id = id; r.fotosDrive = fotos;
+        t.rows.push(r);
+      });
+      if (!tabs.length) tabPara(1, 'General');
+      tabs.forEach(function(t){
+        var max = t.rows.reduce(function(m, r){ return Math.max(m, r.id || 0); }, 0);
+        t.rows.forEach(function(r){ if (!r.id) r.id = ++max; });
+        t.nextId = Math.max(t.nextId || 1, max + 1);
+      });
+      if (!porId[activa]) activa = porId[state.activa] ? state.activa : tabs[0].id;
+      return { meta:meta, tabs:tabs, activa:activa };
+    });
+  }
+  function aplicarRemoto(doc){
+    var inv = {}, bajar = [];
+    Object.keys(fotoMap).forEach(function(k){ inv[fotoMap[k]] = k; });
+    doc.tabs.forEach(function(t){
+      t.rows.forEach(function(r){
+        r.fotos = (r.fotosDrive || []).map(function(d){
+          var l = inv[d];
+          if (!l) { l = 'g' + d; fotoMap[l] = d; inv[d] = l; }
+          if (!photoCache[l]) bajar.push([l, d]);
+          return l;
+        });
+        delete r.fotosDrive;
+      });
+    });
+    lsSet(LS.fotos, fotoMap);
+    state.meta = doc.meta; state.tabs = doc.tabs; state.activa = doc.activa;
+    var t = tabActiva(); state.activa = t.id; state.rows = t.rows; state.nextId = t.nextId;
+    try { localStorage.setItem(KEY, JSON.stringify({ meta:state.meta, tabs:state.tabs, activa:state.activa })); } catch(e){}
+    document.querySelectorAll('[data-meta]').forEach(function(i){ i.value = state.meta[i.getAttribute('data-meta')] || ''; });
+    actualizarListas(); renderTabs(); render();
+    return bajar.reduce(function(p, x){
+      return p.then(function(){ return bajarFoto(x[0], x[1]).catch(function(e){ if (e.auth) throw e; console.warn('Foto no disponible en Drive:', x[1], e); }); });
+    }, Promise.resolve()).then(render);
+  }
+  function localTieneDatos(){
+    return (state.tabs || []).some(function(t){ return (t.rows || []).length > 0; });
+  }
+
+  // --- Sincronización ---
+  function sincronizarAhora(interactivo){
+    if (interactivo && interactivo.type) interactivo = true; // llamado desde un botón
+    if (!GOOGLE_CLIENT_ID) { abrirNube(); return Promise.resolve(); }
+    if (!navigator.onLine) { estadoNube('Sin conexión · cambios guardados localmente'); mensajeNube('Estás sin conexión. Los cambios se sincronizarán cuando vuelva internet.'); return Promise.resolve(); }
+    if (syncing) return Promise.resolve();
+    if (!tokenValido() && !interactivo) {
+      cloudUser = null;
+      estadoNube(lsGet(LS.linked, false) ? 'Google Drive: tocá Sincronizar para reconectar' : 'Solo en este dispositivo');
+      return Promise.resolve();
+    }
+    var inicio = Date.now();
+    var acceso = tokenValido() ? Promise.resolve() : pedirToken(lsGet(LS.linked, false) ? '' : 'consent');
+    return acceso.then(function(){
+      syncing = true; estadoNube('Sincronizando…'); mensajeNube('Sincronizando Excel y fotos con Google Drive…');
+      return cargarUsuario();
+    }).then(function(){
+      return dbOp('readonly', function(s){ return s.getAll(); }).then(function(all){ (all || []).forEach(function(f){ photoCache[f.id] = f; }); }).catch(function(){});
+    }).then(asegurarCarpetas).then(archivoRemoto).then(function(remoto){
+      function subir(){
+        return subirFotos().then(construirExcel).then(function(blob){
+          if (remoto) return api(UPLOAD + '/' + remoto.id + '?uploadType=media&fields=id,modifiedTime', { method:'PATCH', headers:{ 'Content-Type':XLSX_MIME }, body:blob }).then(json);
+          return subirMultipart({ name:ARCHIVO, mimeType:XLSX_MIME, parents:[driveIds.folder] }, blob);
+        }).then(function(j){ driveIds.file = j.id; lsSet(LS.ids, driveIds); lastRemoteModified = j.modifiedTime; });
+      }
+      function bajar(){
+        return api(DRIVE + '/' + remoto.id + '?alt=media').then(function(r){ return r.arrayBuffer(); })
+          .then(leerExcel).then(aplicarRemoto).then(function(){ lastRemoteModified = remoto.modifiedTime; });
+      }
+      if (!remoto) return subir();
+      var remotoCambio = remoto.modifiedTime !== lastRemoteModified;
+      var localCambio = lastLocalChange > lastCloudSync;
+      // Primera vinculación: no pisar en silencio datos locales preexistentes.
+      if (!lastCloudSync) {
+        if (localTieneDatos() && confirm('Tu Google Drive ya tiene un checklist.xlsx y este dispositivo también tiene tareas guardadas. ¿Querés subir y conservar los datos de este dispositivo? Aceptar = subir este dispositivo. Cancelar = descargar el Excel de Drive.')) return subir();
+        return bajar();
+      }
+      if (localCambio && remotoCambio) {
+        if (confirm('Hay cambios en este dispositivo y también en el Excel de Google Drive. ¿Querés conservar este dispositivo y subir sus cambios? Aceptar = subir este dispositivo. Cancelar = descargar el Excel de Drive.')) return subir();
+        return bajar();
+      }
+      if (localCambio) return subir();
+      if (remotoCambio) return bajar();
+    }).then(function(){
+      lastCloudSync = inicio;
+      lsSet(LS.sync, lastCloudSync); lsSet(LS.remote, lastRemoteModified);
+      estadoNube('Google Drive · sincronizado ✓'); mensajeNube('Sincronización completada' + (cloudUser ? ' (' + cloudUser.email + ').' : '.'));
+      linkCarpeta();
+    }).catch(function(err){
+      console.error('Error de sincronización 3dF:', err);
+      if (err && err.auth) cloudUser = null;
+      estadoNube(err && err.auth ? 'Google Drive: tocá Sincronizar para reconectar' : 'Error de sincronización');
+      mensajeNube('No se pudo sincronizar: ' + ((err && err.message) || 'revisá la conexión.'));
+    }).then(function(){
+      syncing = false;
+      if (lastLocalChange > lastCloudSync && tokenValido()) programarSync(true);
+    });
+  }
+  function programarSync(reintento){
+    if (!LS) return; // todavía inicializando
+    if (!reintento) {
+      lastLocalChange = Date.now();
+      lsSet(LS.change, lastLocalChange);
+    }
+    if (!GOOGLE_CLIENT_ID || !lsGet(LS.linked, false)) { estadoNube('Solo en este dispositivo'); return; }
+    if (!navigator.onLine) { estadoNube('Sin conexión · pendiente'); return; }
+    if (!tokenValido()) { estadoNube('Cambios pendientes · tocá Sincronizar para reconectar'); return; }
+    if (syncing) return;
+    estadoNube('Cambios pendientes…');
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(function(){ sincronizarAhora(false); }, 2000);
+  }
+  window.addEventListener('online', function(){ if (tokenValido()) sincronizarAhora(false); });
+  window.addEventListener('focus', function(){ if (tokenValido() && navigator.onLine) sincronizarAhora(false); });
+
+  document.getElementById('nube-login').addEventListener('click', function(){
+    if (!GOOGLE_CLIENT_ID) return abrirNube();
+    mensajeNube('Abriendo la ventana de Google…');
+    pedirToken('select_account').then(function(){ return sincronizarAhora(true); })
+      .catch(function(e){ mensajeNube(e.message || 'No se pudo iniciar sesión con Google.'); });
+  });
+  document.getElementById('nube-sync').addEventListener('click', function(){ sincronizarAhora(true); });
+  document.getElementById('nube-salir').addEventListener('click', function(){
+    var t = accessToken;
+    accessToken = null; tokenExp = 0; cloudUser = null;
+    try { sessionStorage.removeItem(LS.token); } catch(e){}
+    lsSet(LS.linked, false);
+    if (t && window.google && google.accounts && google.accounts.oauth2) { try { google.accounts.oauth2.revoke(t, function(){}); } catch(e){} }
+    linkCarpeta();
+    estadoNube('Solo en este dispositivo');
+    mensajeNube('Sesión cerrada. Los datos siguen guardados en este dispositivo y el Excel queda en tu Google Drive.');
+  });
+
+  // Al abrir la app: si hay un token vigente en esta sesión, sincronizar; si no, avisar.
+  if (!GOOGLE_CLIENT_ID) estadoNube('Solo en este dispositivo');
+  else if (tokenValido()) { estadoNube('Conectando con Google Drive…'); sincronizarAhora(false); }
+  else if (lsGet(LS.linked, false)) estadoNube('Google Drive: tocá Sincronizar para reconectar');
+  else estadoNube('Solo en este dispositivo');
+
+})();
+</script>
+</body>
+</html>
