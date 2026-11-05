@@ -127,11 +127,18 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
 
 /* Celular: cada tarea es una tarjeta */
 .tabs{display:flex;gap:6px;overflow-x:auto;align-items:flex-end;margin:0 0 14px;border-bottom:2px solid var(--negro)}
-.tab{border:2px solid var(--negro);border-bottom:0;background:var(--blanco);padding:0 14px;min-height:42px;font-weight:600;cursor:pointer;white-space:nowrap;border-radius:0}
-.tab.act{background:var(--negro);color:var(--blanco);display:flex;align-items:center;gap:2px;padding:0 4px 0 6px;cursor:default}
+.tab{display:inline-flex;align-items:center;border:2px solid var(--negro);border-bottom:0;background:var(--blanco);padding:0;min-height:42px;font-weight:600;white-space:nowrap;border-radius:0}
+.tab.act{background:var(--negro);color:var(--blanco);gap:2px;padding:0 4px 0 6px}
 .tab.act input{background:transparent;border:0;border-bottom:1px dashed #777;color:var(--blanco);font-weight:800;font-size:16px;padding:8px 4px;width:auto;border-radius:0}
-.tab.act button{background:transparent;border:0;color:var(--blanco);font-size:22px;line-height:1;padding:4px 8px;cursor:pointer}
-.tab.mas{font-size:15px}
+.tab-nombre{border:0;background:transparent;font:inherit;font-weight:600;color:inherit;cursor:pointer;padding:9px 6px 9px 14px}
+.tab-ocultar{border:0;background:transparent;font:inherit;font-weight:600;font-size:11px;line-height:1.2;text-decoration:underline;text-underline-offset:2px;color:inherit;cursor:pointer;padding:8px 10px 8px 4px}
+.tab.act .tab-ocultar{color:#fff}
+.tab .borrar-tab{background:transparent;border:0;color:var(--blanco);font-size:22px;line-height:1;padding:4px 8px;cursor:pointer}
+.tab.mas{font-size:15px;padding:0 14px;cursor:pointer}
+#cuenta-nube{display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;line-height:1.15;text-align:left}
+#cuenta-email{font-weight:800;font-size:12px;max-width:min(70vw,320px);overflow-wrap:anywhere}
+#cuenta-email[hidden]{display:none}
+.btn:disabled{opacity:.55;cursor:wait}
 #editor{position:fixed;inset:0;z-index:60;background:#000;color:#fff;display:flex;flex-direction:column;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 10px) 12px calc(env(safe-area-inset-bottom,0px) + 12px)}
 #editor[hidden]{display:none}
 .ed-tit{margin:0;font-size:13px;color:#ccc;text-align:center}
@@ -237,7 +244,7 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
     </div>
     <select id="f-rubro" aria-label="Filtrar por rubro"></select>
     <input class="buscar" id="f-texto" type="search" placeholder="Buscar tarea, ambiente, contratista…" aria-label="Buscar">
-    <button class="btn" id="cuenta-nube" type="button">Cuenta / sincronización</button>
+    <button class="btn" id="cuenta-nube" type="button" aria-label="Cuenta y sincronización"><span id="cuenta-etiqueta">Cuenta / sincronización</span><span id="cuenta-email" hidden></span></button>
     <span id="estado-nube" aria-live="polite" style="font-size:12px;font-weight:600">Solo en este dispositivo</span>
     <button class="btn primario" id="agregar" type="button">+ Nueva tarea</button>
     <button class="btn" id="pdf" type="button">Exportar PDF</button>
@@ -276,7 +283,7 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
   <section class="nube-panel" role="dialog" aria-modal="true" aria-labelledby="nube-titulo">
     <button type="button" id="nube-cerrar" class="nube-cerrar" aria-label="Cerrar">×</button>
     <h2 id="nube-titulo">Google Drive</h2>
-    <p class="nube-desc">Iniciá sesión con tu cuenta de Google para guardar tu checklist en un Excel (<b>checklist.xlsx</b>) y sus fotos en la carpeta <b>3dF Checklist</b> de tu Google Drive. Seguís editando en la app, también sin conexión; los cambios se suben al sincronizar y lo que se edite en el Excel se trae a la app.</p>
+    <p class="nube-desc">Iniciá sesión con tu cuenta de Google para guardar tu checklist en un Excel (<b>checklist.xlsx</b>, una hoja por pestaña) y sus fotos en la carpeta <b>3dF Checklist</b> de tu Google Drive. Seguís editando en la app, también sin conexión; los cambios se suben al sincronizar y lo que se edite o borre en el Excel se trae a la app.</p>
     <div id="nube-setup" class="nube-desc nube-setup" hidden>
       <b>Falta configurar el acceso a Google (una sola vez, gratis):</b>
       <ol>
@@ -330,9 +337,17 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
     for (var i = 0; i < state.tabs.length; i++) if (state.tabs[i].id === state.activa) return state.tabs[i];
     return state.tabs[0];
   }
+  state.tabs.forEach(function(t){ if (t.oculta !== true) t.oculta = false; });
   state.activa = tabActiva().id;
   state.rows = tabActiva().rows;
   state.nextId = tabActiva().nextId;
+  (function(){
+    var vis = null;
+    for (var i = 0; i < state.tabs.length; i++) if (!state.tabs[i].oculta) { vis = state.tabs[i]; break; }
+    if (vis && tabActiva().oculta) {
+      state.activa = vis.id; state.rows = vis.rows; state.nextId = vis.nextId;
+    }
+  })();
 
   var filtro = { estado:'todas', rubro:'', texto:'' };
   var photoCache = {};
@@ -492,6 +507,16 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
 
   function render(){
     tbody.innerHTML = '';
+    if (tabActiva().oculta) {
+      $('#vacio').textContent = 'No hay pestañas visibles. Tocá Mostrar todas para volver a verlas.';
+      $('#vacio').hidden = false;
+      $('#n-total').textContent = '0';
+      $('#n-hechas').textContent = '0';
+      $('#n-pend').textContent = '0';
+      $('#pct').textContent = '0%';
+      $('#barra').style.width = '0%';
+      return;
+    }
     var frag = document.createDocumentFragment();
     var n = 0;
     state.rows.forEach(function(r){
@@ -602,17 +627,14 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
   }
   function csvCelda(v){ v = String(v==null?'':v); return /[";\n\r]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
   $('#csv').addEventListener('click', function(){
+    if (tabActiva().oculta) { alert('No hay una pestaña visible para exportar. Tocá Mostrar todas.'); return; }
     var cab = ['Fecha','Tarea','Piso','Unidad','Ambiente','Ejecutado','Rubro','Contratista','Ingresado'];
     var lineas = [cab.join(';')];
     state.rows.filter(visible).forEach(function(r){
       lineas.push([fechaAR(r.fecha),r.tarea,r.piso,r.unidad,r.ambiente,r.ejecutado,r.rubro,r.contratista,r.ingresado].map(csvCelda).join(';'));
     });
-    var blob = new Blob(['\ufeff'+lineas.join('\r\n')], {type:'text/csv;charset=utf-8'});
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'checklist-' + slugTab() + '-' + hoyISO() + '.csv';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+    var blob = new Blob(['\ufeff'+lineas.join('\r\n')], {type:'text/csv'});
+    entregar(blob, 'checklist-' + slugTab() + '-' + hoyISO() + '.csv', 'text/csv');
   });
 
   actualizarListas();
@@ -643,13 +665,42 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
     if (!confirm('¿Eliminar la pestaña "' + t.nombre + '" con sus ' + state.rows.length + ' tareas y fotos?')) return;
     state.rows.forEach(function(r){ (r.fotos || []).forEach(quitarFotoDB); });
     state.tabs = state.tabs.filter(function(x){ return x.id !== t.id; });
-    var n = state.tabs[0]; state.activa = n.id; state.rows = n.rows; state.nextId = n.nextId;
+    if (!state.tabs.length) state.tabs = [{ id:1, nombre:'General', rows:[], nextId:1, oculta:false }];
+    var vis = null;
+    for (var i = 0; i < state.tabs.length; i++) if (!state.tabs[i].oculta) { vis = state.tabs[i]; break; }
+    var n = vis || state.tabs[0];
+    state.activa = n.id; state.rows = n.rows; state.nextId = n.nextId;
     filtro.rubro = ''; filtro.texto = ''; $('#f-texto').value = '';
     guardar(); actualizarListas(); render(); renderTabs();
+  }
+  function ocultarTab(id){
+    sincronizar();
+    var t = null;
+    for (var i = 0; i < state.tabs.length; i++) if (state.tabs[i].id === id) t = state.tabs[i];
+    if (!t) return;
+    t.oculta = true;
+    var vis = null;
+    for (var j = 0; j < state.tabs.length; j++) if (!state.tabs[j].oculta) { vis = state.tabs[j]; break; }
+    if (vis && (state.activa === id || tabActiva().oculta)) irATab(vis.id);
+    else { guardar(); actualizarListas(); render(); renderTabs(); }
+  }
+  function mostrarTodas(){
+    sincronizar();
+    state.tabs.forEach(function(t){ t.oculta = false; });
+    var t = tabActiva(); state.rows = t.rows; state.nextId = t.nextId;
+    guardar(); actualizarListas(); render(); renderTabs();
+  }
+  function botonOcultar(t){
+    var h = document.createElement('button');
+    h.type = 'button'; h.className = 'tab-ocultar'; h.textContent = 'Ocultar';
+    h.setAttribute('aria-label', 'Ocultar pestaña ' + (t.nombre || ''));
+    h.addEventListener('click', function(ev){ ev.stopPropagation(); ev.preventDefault(); ocultarTab(t.id); });
+    return h;
   }
   function renderTabs(){
     var nav = $('#tabs'); nav.innerHTML = '';
     state.tabs.forEach(function(t){
+      if (t.oculta) return;
       if (t.id === state.activa) {
         var d = document.createElement('div'); d.className = 'tab act';
         var i = document.createElement('input');
@@ -659,18 +710,28 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
         i.addEventListener('input', function(){ t.nombre = i.value; i.size = Math.max(6, i.value.length + 1); guardar(); });
         i.addEventListener('blur', function(){ if (!i.value.trim()) { t.nombre = 'Sin nombre'; i.value = t.nombre; guardar(); } });
         d.appendChild(i);
+        d.appendChild(botonOcultar(t));
         if (state.tabs.length > 1) {
-          var x = document.createElement('button'); x.type = 'button'; x.innerHTML = '&times;';
+          var x = document.createElement('button'); x.type = 'button'; x.className = 'borrar-tab'; x.innerHTML = '&times;';
           x.setAttribute('aria-label', 'Eliminar pestaña'); x.addEventListener('click', borrarTab);
           d.appendChild(x);
         }
         nav.appendChild(d);
       } else {
-        var b = document.createElement('button'); b.type = 'button'; b.className = 'tab'; b.textContent = t.nombre;
+        var d2 = document.createElement('div'); d2.className = 'tab';
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'tab-nombre'; b.textContent = t.nombre;
         b.addEventListener('click', function(){ irATab(t.id); });
-        nav.appendChild(b);
+        d2.appendChild(b);
+        d2.appendChild(botonOcultar(t));
+        nav.appendChild(d2);
       }
     });
+    if (state.tabs.some(function(x){ return x.oculta; })) {
+      var todas = document.createElement('button'); todas.type = 'button'; todas.className = 'tab mas';
+      todas.textContent = 'Mostrar todas';
+      todas.addEventListener('click', mostrarTodas);
+      nav.appendChild(todas);
+    }
     var m = document.createElement('button'); m.type = 'button'; m.className = 'tab mas'; m.textContent = '+ Pestaña';
     m.addEventListener('click', nuevaTab);
     nav.appendChild(m);
@@ -851,21 +912,59 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
     });
   }
 
-  // ---- Entregar archivo: menú de compartir en el celular, descarga en la compu ----
-  function entregar(blob, nombre, tipo, titulo){
-    var archivo = new File([blob], nombre, { type:tipo });
-    if (navigator.canShare && navigator.canShare({ files:[archivo] })) {
-      navigator.share({ files:[archivo], title:titulo })
-        .catch(function(err){ if (!err || err.name !== 'AbortError') descargarArchivo(blob, nombre); });
-    } else { descargarArchivo(blob, nombre); }
+  // ---- Entregar archivo: compartir en el celular; en la compu, descarga directa ----
+  // El menú de compartir del escritorio se abre y no entrega el archivo.
+  // En el celular, si share rechaza (también con AbortError), se descarga:
+  // varios navegadores usan ese error cuando el destino no recibe el archivo.
+  function esMovilCompartir(){
+    var ua = navigator.userAgent || '';
+    if (/Android|iPhone|iPad|iPod/i.test(ua)) return true;
+    if (navigator.maxTouchPoints > 1 && /Macintosh/i.test(ua)) return true;
+    try {
+      if (window.matchMedia && matchMedia('(pointer: coarse)').matches && matchMedia('(hover: none)').matches) return true;
+    } catch (e) {}
+    return false;
+  }
+  function nombreSeguro(nombre){
+    var base = String(nombre || 'archivo').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '-').replace(/\s+/g, ' ').trim();
+    return base || 'archivo';
+  }
+  function descargarArchivo(blob, nombre){
+    nombre = nombreSeguro(nombre);
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = nombre;
+    a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(url); if (a.parentNode) a.remove(); }, 60000);
+  }
+  function entregar(blob, nombre, tipo){
+    nombre = nombreSeguro(nombre);
+    var mime = String(tipo || (blob && blob.type) || 'application/octet-stream').split(';')[0].trim() || 'application/octet-stream';
+    if (!esMovilCompartir() || !navigator.share) { descargarArchivo(blob, nombre); return Promise.resolve(); }
+    var archivo;
+    try { archivo = new File([blob], nombre, { type:mime }); }
+    catch (e) { descargarArchivo(blob, nombre); return Promise.resolve(); }
+    var puede = false;
+    try { puede = !!(navigator.canShare && navigator.canShare({ files:[archivo] })); }
+    catch (e2) { puede = false; }
+    if (!puede) { descargarArchivo(blob, nombre); return Promise.resolve(); }
+    return navigator.share({ files:[archivo] }).catch(function(){ descargarArchivo(blob, nombre); });
+  }
+  function slugObra(){
+    return norm(state.meta.obra || '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'checklist';
   }
 
-  // ---- Exportar Excel (.xlsx con membrete, logo, colores y fotos) ----
-  $('#xls').addEventListener('click', function(){
+  // ---- Exportar Excel: con sesión, sincroniza antes; una hoja por pestaña visible ----
+  function armarExcelVisible(){
     var EJ = window.ExcelJS;
     if (!EJ) { alert('No se pudo cargar el generador de Excel. Revisá la conexión a internet y probá de nuevo.'); return; }
-    var filas = state.rows.filter(visible);
-    if (!filas.length) { alert('No hay tareas para exportar con estos filtros.'); return; }
+    sincronizar();
+    var visibles = state.tabs.filter(function(t){ return !t.oculta; });
+    if (!visibles.length) { alert('No hay pestañas visibles para exportar. Tocá Mostrar todas.'); return; }
 
     var NEGRO = { argb:'FF000000' }, BLANCO = { argb:'FFFFFFFF' };
     var fino = { style:'thin', color:{ argb:'FF000000' } };
@@ -873,110 +972,115 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
     var relleno = function(c){ return { type:'pattern', pattern:'solid', fgColor:c }; };
     var wb = new EJ.Workbook(); wb.creator = '3dF Desarrollos';
     var pagina = { paperSize:9, orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0 };
-    var ws = wb.addWorksheet(tabActiva().nombre.replace(/[\[\]:*?\/\\]/g, '').slice(0, 31) || 'Checklist', { views:[{ state:'frozen', ySplit:7 }], pageSetup:pagina });
-    ws.columns = [14,44,7,9,18,12,20,18,24,8].map(function(w){ return { width:w }; });
+    var usados = {};
+    var idLogo = null;
+    if (logoPdf) idLogo = wb.addImage({ base64: logoPdf.url, extension:'png' });
+    var conFotos = $('#pdf-fotos').checked;
 
-    // Membrete negro
-    for (var rr = 1; rr <= 3; rr++) {
-      ws.getRow(rr).height = 20;
-      for (var cc = 1; cc <= 10; cc++) ws.getCell(rr, cc).fill = relleno(NEGRO);
-    }
-    function texto(rango, valor, fuente, alin){
-      ws.mergeCells(rango);
-      var c = ws.getCell(rango.split(':')[0]);
-      c.value = valor; c.font = fuente; c.alignment = alin; c.fill = relleno(NEGRO);
-    }
-    var izq = { vertical:'middle', horizontal:'left', indent:1 }, der = { vertical:'middle', horizontal:'right' };
-    var partes = [];
-    if (filtro.estado === 'SI') partes.push('Ejecutadas'); else if (filtro.estado === 'NO') partes.push('Pendientes');
-    if (filtro.rubro) partes.push('Rubro: ' + filtro.rubro);
-    if (filtro.texto) partes.push('Búsqueda: ' + filtro.texto);
-    texto('B1:G1', 'CHECKLIST TAREAS', { name:'Arial', size:18, bold:true, color:BLANCO }, izq);
-    texto('B2:G2', 'OBRA: ' + (state.meta.obra || '') + '  -  ' + tabActiva().nombre, { name:'Arial', size:11, color:BLANCO }, izq);
-    texto('B3:G3', partes.length ? 'Filtros: ' + partes.join(' | ') : '', { name:'Arial', size:9, color:{ argb:'FFCCCCCC' } }, izq);
-    texto('H1:J1', String(state.meta.codigo || ''), { name:'Arial', size:9, bold:true, color:BLANCO }, der);
-    texto('H2:J2', 'VERSIÓN: ' + (state.meta.version || ''), { name:'Arial', size:9, color:BLANCO }, der);
-    texto('H3:J3', 'FECHA: ' + (state.meta.fecha || ''), { name:'Arial', size:9, color:BLANCO }, der);
-    if (logoPdf) {
-      var idLogo = wb.addImage({ base64: logoPdf.url, extension:'png' });
-      ws.addImage(idLogo, { tl:{ col:0.1, row:0.15 }, ext:{ width:90, height:Math.round(90 * logoPdf.h / logoPdf.w) } });
-    } else {
-      ws.getCell('A1').value = '3dF'; ws.getCell('A1').font = { name:'Arial', size:16, bold:true, color:BLANCO };
-    }
+    visibles.forEach(function(tab){
+      var filas = (tab.rows || []).slice();
+      var ws = wb.addWorksheet(nombreHoja(tab.nombre, usados), { views:[{ state:'frozen', ySplit:7 }], pageSetup:pagina });
+      ws.columns = [14,44,7,9,18,12,20,18,24,8].map(function(w){ return { width:w }; });
+      for (var rr = 1; rr <= 3; rr++) {
+        ws.getRow(rr).height = 20;
+        for (var cc = 1; cc <= 10; cc++) ws.getCell(rr, cc).fill = relleno(NEGRO);
+      }
+      function texto(rango, valor, fuente, alin){
+        ws.mergeCells(rango);
+        var c = ws.getCell(rango.split(':')[0]);
+        c.value = valor; c.font = fuente; c.alignment = alin; c.fill = relleno(NEGRO);
+      }
+      var izq = { vertical:'middle', horizontal:'left', indent:1 }, der = { vertical:'middle', horizontal:'right' };
+      texto('B1:G1', 'CHECKLIST TAREAS', { name:'Arial', size:18, bold:true, color:BLANCO }, izq);
+      texto('B2:G2', 'OBRA: ' + (state.meta.obra || '') + '  -  ' + tab.nombre, { name:'Arial', size:11, color:BLANCO }, izq);
+      texto('B3:G3', '', { name:'Arial', size:9, color:{ argb:'FFCCCCCC' } }, izq);
+      texto('H1:J1', String(state.meta.codigo || ''), { name:'Arial', size:9, bold:true, color:BLANCO }, der);
+      texto('H2:J2', 'VERSIÓN: ' + (state.meta.version || ''), { name:'Arial', size:9, color:BLANCO }, der);
+      texto('H3:J3', 'FECHA: ' + (state.meta.fecha || ''), { name:'Arial', size:9, color:BLANCO }, der);
+      if (idLogo != null) {
+        ws.addImage(idLogo, { tl:{ col:0.1, row:0.15 }, ext:{ width:90, height:Math.round(90 * logoPdf.h / logoPdf.w) } });
+      } else {
+        ws.getCell('A1').value = '3dF'; ws.getCell('A1').font = { name:'Arial', size:16, bold:true, color:BLANCO };
+      }
+      var hechas = filas.filter(function(r){ return r.ejecutado === 'SI'; }).length;
+      var pct = filas.length ? Math.round(hechas * 100 / filas.length) : 0;
+      ws.mergeCells('A5:J5'); ws.getRow(5).height = 22;
+      var res = ws.getCell('A5');
+      res.value = 'Tareas: ' + filas.length + '     Pendientes: ' + (filas.length - hechas) + '     Ejecutadas: ' + hechas + '     Avance: ' + pct + '%';
+      res.font = { name:'Arial', size:11, bold:true }; res.alignment = { vertical:'middle', horizontal:'left' };
+      var cab = ['Fecha','Tarea','Piso','Unidad','Ambiente','Ejecutado','Rubro','Contratista','Ingresado','Fotos'];
+      var centrados = { 1:1, 3:1, 4:1, 6:1, 10:1 };
+      ws.getRow(7).height = 22;
+      cab.forEach(function(t, i){
+        var c = ws.getCell(7, i + 1);
+        c.value = t; c.font = { name:'Arial', size:10, bold:true, color:BLANCO };
+        c.fill = relleno(NEGRO); c.border = bordes; c.alignment = { vertical:'middle', horizontal:'center' };
+      });
+      filas.forEach(function(r, i){
+        var n = 8 + i;
+        var vals = [fechaAR(r.fecha), r.tarea, r.piso, r.unidad, r.ambiente, r.ejecutado === 'SI' ? 'SÍ' : 'NO',
+                    r.rubro, r.contratista, r.ingresado, (r.fotos || []).length];
+        ws.getRow(n).height = Math.max(18, Math.ceil(String(r.tarea || '').length / 44) * 15 + 4);
+        vals.forEach(function(v, k){
+          var c = ws.getCell(n, k + 1);
+          c.value = v; c.border = bordes;
+          c.font = { name:'Arial', size:10 };
+          c.alignment = { vertical:'middle', wrapText:true, horizontal: centrados[k + 1] ? 'center' : 'left' };
+          if (i % 2) c.fill = relleno({ argb:'FFF0F0F0' });
+          if (k === 5) {
+            c.font = { name:'Arial', size:10, bold:true, color: r.ejecutado === 'SI' ? BLANCO : NEGRO };
+            if (r.ejecutado === 'SI') c.fill = relleno(NEGRO);
+          }
+        });
+      });
+      ws.autoFilter = { from:{ row:7, column:1 }, to:{ row:7 + filas.length, column:10 } };
+      ws.pageSetup.printTitlesRow = '7:7';
 
-    // Resumen
-    var hechas = filas.filter(function(r){ return r.ejecutado === 'SI'; }).length;
-    var pct = Math.round(hechas * 100 / filas.length);
-    ws.mergeCells('A5:J5'); ws.getRow(5).height = 22;
-    var res = ws.getCell('A5');
-    res.value = 'Tareas: ' + filas.length + '     Pendientes: ' + (filas.length - hechas) + '     Ejecutadas: ' + hechas + '     Avance: ' + pct + '%';
-    res.font = { name:'Arial', size:11, bold:true }; res.alignment = { vertical:'middle', horizontal:'left' };
-
-    // Tabla
-    var cab = ['Fecha','Tarea','Piso','Unidad','Ambiente','Ejecutado','Rubro','Contratista','Ingresado','Fotos'];
-    var centrados = { 1:1, 3:1, 4:1, 6:1, 10:1 };
-    ws.getRow(7).height = 22;
-    cab.forEach(function(t, i){
-      var c = ws.getCell(7, i + 1);
-      c.value = t; c.font = { name:'Arial', size:10, bold:true, color:BLANCO };
-      c.fill = relleno(NEGRO); c.border = bordes; c.alignment = { vertical:'middle', horizontal:'center' };
-    });
-    filas.forEach(function(r, i){
-      var n = 8 + i;
-      var vals = [fechaAR(r.fecha), r.tarea, r.piso, r.unidad, r.ambiente, r.ejecutado === 'SI' ? 'SÍ' : 'NO',
-                  r.rubro, r.contratista, r.ingresado, (r.fotos || []).length];
-      ws.getRow(n).height = Math.max(18, Math.ceil(String(r.tarea || '').length / 44) * 15 + 4);
-      vals.forEach(function(v, k){
-        var c = ws.getCell(n, k + 1);
-        c.value = v; c.border = bordes;
-        c.font = { name:'Arial', size:10 };
-        c.alignment = { vertical:'middle', wrapText:true, horizontal: centrados[k + 1] ? 'center' : 'left' };
-        if (i % 2) c.fill = relleno({ argb:'FFF0F0F0' });
-        if (k === 5) {
-          c.font = { name:'Arial', size:10, bold:true, color: r.ejecutado === 'SI' ? BLANCO : NEGRO };
-          if (r.ejecutado === 'SI') c.fill = relleno(NEGRO);
-        }
+      if (!conFotos) return;
+      var conF = filas.filter(function(r){ return (r.fotos || []).some(function(id){ return photoCache[id]; }); });
+      if (!conF.length) return;
+      var w2 = wb.addWorksheet(nombreHoja(tab.nombre + ' fotos', usados), { pageSetup:pagina });
+      w2.columns = [{ width:46 }, { width:46 }, { width:46 }];
+      w2.mergeCells('A1:C1'); w2.getRow(1).height = 26;
+      var t2 = w2.getCell('A1');
+      t2.value = 'Registro fotográfico - ' + tab.nombre;
+      t2.font = { name:'Arial', size:14, bold:true, color:BLANCO };
+      t2.fill = relleno(NEGRO); t2.alignment = { vertical:'middle', horizontal:'left', indent:1 };
+      var fila = 3;
+      conF.forEach(function(r){
+        var ids = r.fotos.filter(function(id){ return photoCache[id]; });
+        w2.mergeCells('A' + fila + ':C' + fila);
+        var tt = w2.getCell('A' + fila);
+        tt.value = (r.tarea || 'Sin título') + '  (' + [r.piso && 'Piso ' + r.piso, r.unidad && 'Unidad ' + r.unidad, r.ambiente].filter(Boolean).join(' - ') + ')';
+        tt.font = { name:'Arial', size:10, bold:true }; tt.fill = relleno({ argb:'FFE6E6E6' });
+        tt.alignment = { vertical:'middle', wrapText:true };
+        fila++;
+        var col = 0;
+        ids.forEach(function(id){
+          var f = photoCache[id], s = Math.min(320 / f.w, 240 / f.h);
+          if (col === 3) { col = 0; fila += 13; }
+          var img = wb.addImage({ base64: f.data, extension:'jpeg' });
+          w2.addImage(img, { tl:{ col: col + 0.03, row: fila - 1 }, ext:{ width: Math.round(f.w * s), height: Math.round(f.h * s) } });
+          col++;
+        });
+        fila += 14;
       });
     });
-    ws.autoFilter = { from:{ row:7, column:1 }, to:{ row:7 + filas.length, column:10 } };
-    ws.pageSetup.printTitlesRow = '7:7';
-
-    // Hoja de fotos
-    if ($('#pdf-fotos').checked) {
-      var conF = filas.filter(function(r){ return (r.fotos || []).some(function(id){ return photoCache[id]; }); });
-      if (conF.length) {
-        var w2 = wb.addWorksheet('Registro fotográfico', { pageSetup:pagina });
-        w2.columns = [{ width:46 }, { width:46 }, { width:46 }];
-        w2.mergeCells('A1:C1'); w2.getRow(1).height = 26;
-        var t2 = w2.getCell('A1');
-        t2.value = 'Registro fotográfico'; t2.font = { name:'Arial', size:14, bold:true, color:BLANCO };
-        t2.fill = relleno(NEGRO); t2.alignment = { vertical:'middle', horizontal:'left', indent:1 };
-        var fila = 3;
-        conF.forEach(function(r){
-          var ids = r.fotos.filter(function(id){ return photoCache[id]; });
-          w2.mergeCells('A' + fila + ':C' + fila);
-          var tt = w2.getCell('A' + fila);
-          tt.value = (r.tarea || 'Sin título') + '  (' + [r.piso && 'Piso ' + r.piso, r.unidad && 'Unidad ' + r.unidad, r.ambiente].filter(Boolean).join(' - ') + ')';
-          tt.font = { name:'Arial', size:10, bold:true }; tt.fill = relleno({ argb:'FFE6E6E6' });
-          tt.alignment = { vertical:'middle', wrapText:true };
-          fila++;
-          var col = 0;
-          ids.forEach(function(id){
-            var f = photoCache[id], s = Math.min(320 / f.w, 240 / f.h);
-            if (col === 3) { col = 0; fila += 13; }
-            var img = wb.addImage({ base64: f.data, extension:'jpeg' });
-            w2.addImage(img, { tl:{ col: col + 0.03, row: fila - 1 }, ext:{ width: Math.round(f.w * s), height: Math.round(f.h * s) } });
-            col++;
-          });
-          fila += 14;
-        });
-      }
-    }
 
     var tipo = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     wb.xlsx.writeBuffer().then(function(buf){
-      entregar(new Blob([buf], { type:tipo }), 'checklist-' + slugTab() + '-' + hoyISO() + '.xlsx', tipo, 'Checklist de tareas - ' + (state.meta.obra || ''));
+      entregar(new Blob([buf], { type:tipo }), 'checklist-' + slugObra() + '-' + hoyISO() + '.xlsx', tipo);
     }).catch(function(){ alert('No se pudo generar el Excel. Probá de nuevo.'); });
+  }
+  $('#xls').addEventListener('click', function(){
+    var btn = this;
+    if (!window.ExcelJS) { alert('No se pudo cargar el generador de Excel. Revisá la conexión a internet y probá de nuevo.'); return; }
+    function listo(){ btn.disabled = false; btn.textContent = 'Exportar Excel'; armarExcelVisible(); }
+    if (tokenValido()) {
+      btn.disabled = true;
+      btn.textContent = 'Sincronizando…';
+      sincronizarAhora(true).then(listo, listo);
+    } else listo();
   });
 
   // ---- Exportar PDF (se comparte directo a WhatsApp si el dispositivo lo permite) ----
@@ -994,17 +1098,10 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
     im.src = 'logo.png';
   })();
 
-  function descargarArchivo(blob, nombre){
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = nombre;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
-  }
-
   $('#pdf').addEventListener('click', function(){
     var lib = window.jspdf && window.jspdf.jsPDF;
     if (!lib) { alert('No se pudo cargar el generador de PDF. Revisá la conexión a internet y probá de nuevo.'); return; }
+    if (tabActiva().oculta) { alert('No hay una pestaña visible para exportar. Tocá Mostrar todas.'); return; }
     var filas = state.rows.filter(visible);
     if (!filas.length) { alert('No hay tareas para exportar con estos filtros.'); return; }
 
@@ -1107,14 +1204,8 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
       }
     }
     var nombre = 'checklist-' + slugTab() + '-' + hoyISO() + '.pdf';
-    var blob = doc.output('blob');
-    var archivo = new File([blob], nombre, { type:'application/pdf' });
-    if (navigator.canShare && navigator.canShare({ files:[archivo] })) {
-      navigator.share({ files:[archivo], title:'Checklist de tareas - ' + (state.meta.obra || '') })
-        .catch(function(err){ if (!err || err.name !== 'AbortError') descargarArchivo(blob, nombre); });
-    } else {
-      descargarArchivo(blob, nombre);
-    }
+    var buf = doc.output('arraybuffer');
+    entregar(new Blob([buf], { type:'application/pdf' }), nombre, 'application/pdf');
   });
 
   // ---- Cuenta Google y sincronización local-first con Google Drive ----
@@ -1128,16 +1219,18 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
   var DRIVE = 'https://www.googleapis.com/drive/v3/files';
   var UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
   var LS = { change:'3df-checklist-local-change', sync:'3df-checklist-last-sync', remote:'3df-gdrive-remote-modified',
-             ids:'3df-gdrive-ids', fotos:'3df-gdrive-fotos', linked:'3df-gdrive-vinculado', token:'3df-gdrive-token' };
+             ids:'3df-gdrive-ids', fotos:'3df-gdrive-fotos', fotoNombres:'3df-gdrive-foto-nombres', hojas:'3df-gdrive-hojas',
+             linked:'3df-gdrive-vinculado', token:'3df-gdrive-token' };
   function lsGet(k, def){ try { var v = localStorage.getItem(k); return v == null ? def : JSON.parse(v); } catch(e){ return def; } }
   function lsSet(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
 
-  var accessToken = null, tokenExp = 0, cloudUser = null, syncTimer = null, syncing = false;
+  var accessToken = null, tokenExp = 0, cloudUser = null, syncTimer = null, syncing = false, syncActual = null, hojasEscritas = null;
   var lastLocalChange = Number(lsGet(LS.change, 0)) || 0;
   var lastCloudSync = Number(lsGet(LS.sync, 0)) || 0;
   var lastRemoteModified = lsGet(LS.remote, '') || '';
   var driveIds = lsGet(LS.ids, {}) || {};   // { email, folder, fotos, file }
   var fotoMap = lsGet(LS.fotos, {}) || {};  // id de foto local -> id de archivo en Drive
+  var fotoNombres = lsGet(LS.fotoNombres, {}) || {};
   try { var tk = JSON.parse(sessionStorage.getItem(LS.token) || 'null'); if (tk && tk.e > Date.now()) { accessToken = tk.t; tokenExp = tk.e; } } catch(e){}
 
   var nubeModal = document.getElementById('nube-modal');
@@ -1150,6 +1243,26 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
   function linkCarpeta(){
     if (driveIds.folder && cloudUser) { nubeCarpeta.href = 'https://drive.google.com/drive/folders/' + driveIds.folder; nubeCarpeta.hidden = false; }
     else nubeCarpeta.hidden = true;
+  }
+  function emailSesion(){
+    if (cloudUser && cloudUser.email) return cloudUser.email;
+    if (tokenValido() && driveIds && driveIds.email) return driveIds.email;
+    return '';
+  }
+  function mostrarCuenta(){
+    var b = document.getElementById('cuenta-nube');
+    var em = document.getElementById('cuenta-email');
+    if (!b || !em) return;
+    var email = emailSesion();
+    if (email) {
+      em.hidden = false;
+      em.textContent = email;
+      b.setAttribute('aria-label', 'Sesión de Google: ' + email + '. Tocá para sincronizar.');
+    } else {
+      em.hidden = true;
+      em.textContent = '';
+      b.setAttribute('aria-label', 'Cuenta y sincronización');
+    }
   }
   function abrirNube(){
     nubeModal.hidden = false;
@@ -1206,7 +1319,7 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
     opts = opts || {}; opts.headers = opts.headers || {};
     opts.headers.Authorization = 'Bearer ' + accessToken;
     return fetch(url, opts).then(function(r){
-      if (r.status === 401) { accessToken = null; tokenExp = 0; try { sessionStorage.removeItem(LS.token); } catch(e){} throw errAuth(); }
+      if (r.status === 401) { accessToken = null; tokenExp = 0; cloudUser = null; try { sessionStorage.removeItem(LS.token); } catch(e){} mostrarCuenta(); throw errAuth(); }
       if (!r.ok) return r.text().then(function(t){ var e = new Error('Google Drive respondió ' + r.status + ': ' + t.slice(0, 160)); e.status = r.status; throw e; });
       return r;
     });
@@ -1260,11 +1373,12 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
       var email = (j.user && j.user.emailAddress) || '';
       if (driveIds.email && email && driveIds.email !== email) {
         // Otra cuenta de Google en este dispositivo: empezar la vinculación de cero.
-        driveIds = {}; fotoMap = {}; lastCloudSync = 0; lastRemoteModified = '';
-        lsSet(LS.fotos, fotoMap); lsSet(LS.sync, 0); lsSet(LS.remote, '');
+        driveIds = {}; fotoMap = {}; fotoNombres = {}; lastCloudSync = 0; lastRemoteModified = '';
+        lsSet(LS.fotos, fotoMap); lsSet(LS.fotoNombres, fotoNombres); lsSet(LS.sync, 0); lsSet(LS.remote, ''); lsSet(LS.hojas, null);
       }
       driveIds.email = email; lsSet(LS.ids, driveIds);
       cloudUser = { email: email, nombre: (j.user && j.user.displayName) || '' };
+      mostrarCuenta();
     });
   }
 
@@ -1301,13 +1415,50 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
       im.src = dataUrl;
     });
   }
+  function sanitizarNombreArchivo(s){
+    var t = String(s == null ? '' : s).replace(/[\u0000-\u001f\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim().replace(/^[.]+|[. ]+$/g, '');
+    return t || 'sin nombre';
+  }
+  // Una sola foto: "{pestaña} - {tarea}.jpg". Si hay varias: "{pestaña} - {tarea} - {N}.jpg" con N = 1, 2, …
+  function nombreFotoDrive(pestana, tarea, indice, total){
+    var base = sanitizarNombreArchivo(pestana) + ' - ' + sanitizarNombreArchivo(tarea || 'Sin título');
+    if (base.length > 160) base = base.slice(0, 160).replace(/[. ]+$/g, '') || 'foto';
+    if (total > 1) base += ' - ' + (indice + 1);
+    return base + '.jpg';
+  }
+  function planFotos(){
+    sincronizar();
+    var out = [];
+    (state.tabs || []).forEach(function(t){
+      (t.rows || []).forEach(function(r){
+        var fotos = r.fotos || [];
+        fotos.forEach(function(id, i){ out.push({ id:id, nombre:nombreFotoDrive(t.nombre, r.tarea, i, fotos.length) }); });
+      });
+    });
+    return out;
+  }
+  function renombrarArchivo(id, nombre){
+    return api(DRIVE + '/' + encodeURIComponent(id) + '?fields=id,name', {
+      method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name:nombre })
+    }).then(json);
+  }
   function subirFotos(){
-    return idsFotos().reduce(function(p, id){
+    return planFotos().reduce(function(p, item){
       return p.then(function(){
-        var f = photoCache[id];
-        if (!f || fotoMap[id]) return;
-        return subirMultipart({ name:id + '.jpg', mimeType:'image/jpeg', parents:[driveIds.fotos] }, dataUrlBlob(f.data))
-          .then(function(j){ fotoMap[id] = j.id; lsSet(LS.fotos, fotoMap); });
+        var f = photoCache[item.id];
+        var idDrive = fotoMap[item.id];
+        if (!idDrive) {
+          if (!f) return;
+          return subirMultipart({ name:item.nombre, mimeType:'image/jpeg', parents:[driveIds.fotos] }, dataUrlBlob(f.data))
+            .then(function(j){
+              fotoMap[item.id] = j.id; fotoNombres[item.id] = item.nombre;
+              lsSet(LS.fotos, fotoMap); lsSet(LS.fotoNombres, fotoNombres);
+            });
+        }
+        if (fotoNombres[item.id] === item.nombre) return;
+        return renombrarArchivo(idDrive, item.nombre).then(function(){
+          fotoNombres[item.id] = item.nombre; lsSet(LS.fotoNombres, fotoNombres);
+        }).catch(function(e){ if (e && e.auth) throw e; });
       });
     }, Promise.resolve());
   }
@@ -1320,32 +1471,63 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
     });
   }
 
-  // --- Excel ↔ estado ---
-  var COLS = ['id','tab','Pestaña','Fecha','Tarea','Piso','Unidad','Ambiente','Ejecutado','Rubro','Contratista','Ingresado','FotosIds'];
-  var ANCHOS = [7,6,16,12,44,7,9,18,11,20,18,24,40];
+  // --- Excel ↔ estado (una hoja por pestaña; Config conserva ids) ---
+  var COLS_SYNC = ['id','Fecha','Tarea','Piso','Unidad','Ambiente','Ejecutado','Rubro','Contratista','Ingresado','FotosIds','TabId'];
+  var ANCHOS_SYNC = [8,12,44,8,10,18,12,20,18,24,40,10];
+  function nombreHoja(nombre, usados){
+    var reservadas = { history:1, config:1 };
+    var s = String(nombre || 'Pestaña').replace(/[:\\/?*\[\]]/g, ' ').replace(/\s+/g, ' ').trim().replace(/^'+|'+$/g, '').trim();
+    if (!s) s = 'Pestaña';
+    if (reservadas[norm(s)]) s = (s + ' tab').slice(0, 31);
+    s = s.slice(0, 31);
+    var base = s, n = 2;
+    while (usados[norm(s)] || reservadas[norm(s)]) {
+      var suf = ' ' + n;
+      s = base.slice(0, Math.max(1, 31 - suf.length)) + suf;
+      n++;
+      if (n > 99) break;
+    }
+    usados[norm(s)] = 1;
+    return s;
+  }
   function construirExcel(){
     var EJ = window.ExcelJS;
     if (!EJ) return Promise.reject(new Error('No se pudo cargar el generador de Excel.'));
     sincronizar();
     var NEGRO = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF000000' } };
     var wb = new EJ.Workbook(); wb.creator = '3dF Desarrollos';
-    var ws = wb.addWorksheet('Tareas', { views:[{ state:'frozen', ySplit:1 }] });
-    ws.columns = COLS.map(function(c, i){ return { header:c, key:c, width:ANCHOS[i] }; });
+    var usados = {}, mapa = {};
+    // Ocultar una pestaña en la app no saca su hoja: Drive siempre recibe todas.
     state.tabs.forEach(function(t){
-      (t.rows || []).forEach(function(r){
-        ws.addRow([r.id, t.id, t.nombre, r.fecha || '', r.tarea || '', r.piso || '', r.unidad || '', r.ambiente || '',
-                   r.ejecutado === 'SI' ? 'SI' : 'NO', r.rubro || '', r.contratista || '', r.ingresado || '',
-                   (r.fotos || []).map(function(id){ return fotoMap[id]; }).filter(Boolean).join(',')]);
+      var hoja = nombreHoja(t.nombre, usados);
+      mapa[String(t.id)] = hoja;
+      var ws = wb.addWorksheet(hoja, { views:[{ state:'frozen', ySplit:1 }] });
+      ws.state = 'visible';
+      ws.columns = COLS_SYNC.map(function(c, i){ return { header:c, key:c, width:ANCHOS_SYNC[i] }; });
+      var filas = (t.rows || []).map(function(r){
+        return [r.id, r.fecha || '', r.tarea || '', r.piso || '', r.unidad || '', r.ambiente || '',
+                r.ejecutado === 'SI' ? 'SI' : 'NO', r.rubro || '', r.contratista || '', r.ingresado || '',
+                (r.fotos || []).map(function(id){ return fotoMap[id]; }).filter(Boolean).join(','), t.id];
       });
+      if (!filas.length) filas = [['', '', '', '', '', '', '', '', '', '', '', t.id]];
+      filas.forEach(function(vals){ ws.addRow(vals); });
+      ws.getColumn(12).hidden = true;
+      ws.getRow(1).eachCell(function(c){ c.font = { name:'Arial', bold:true, color:{ argb:'FFFFFFFF' } }; c.fill = NEGRO; });
+      ws.autoFilter = { from:{ row:1, column:1 }, to:{ row:1, column:11 } };
     });
-    ws.getRow(1).eachCell(function(c){ c.font = { name:'Arial', bold:true, color:{ argb:'FFFFFFFF' } }; c.fill = NEGRO; });
-    ws.autoFilter = { from:{ row:1, column:1 }, to:{ row:1, column:COLS.length } };
     var wc = wb.addWorksheet('Config');
-    wc.columns = [{ header:'clave', width:16 }, { header:'valor', width:30 }, { header:'nombre', width:24 }, { header:'nextId', width:8 }];
+    wc.columns = [
+      { header:'clave', width:16 }, { header:'valor', width:30 }, { header:'nombre', width:24 },
+      { header:'nextId', width:10 }, { header:'oculta', width:10 }, { header:'hoja', width:32 }
+    ];
     ['obra','codigo','version','fecha'].forEach(function(k){ wc.addRow(['meta.' + k, state.meta[k] || '']); });
+    wc.addRow(['formato', 'hojas']);
     wc.addRow(['activa', state.activa]);
-    state.tabs.forEach(function(t){ wc.addRow(['tab', t.id, t.nombre, t.nextId || 1]); });
+    state.tabs.forEach(function(t){
+      wc.addRow(['tab', t.id, t.nombre, t.nextId || 1, t.oculta ? 1 : 0, mapa[String(t.id)]]);
+    });
     wc.getRow(1).eachCell(function(c){ c.font = { name:'Arial', bold:true, color:{ argb:'FFFFFFFF' } }; c.fill = NEGRO; });
+    hojasEscritas = mapa;
     return wb.xlsx.writeBuffer().then(function(buf){ return new Blob([buf], { type:XLSX_MIME }); });
   }
   function pad2(n){ return String(n).padStart(2, '0'); }
@@ -1366,60 +1548,207 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
     var m = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/.exec(s);
     return m ? (m[3] + '-' + pad2(m[2]) + '-' + pad2(m[1])) : s;
   }
+  function hojaPorNombre(wb, nombre){
+    var n = norm(nombre), found = null;
+    wb.worksheets.forEach(function(ws){ if (norm(ws.name) === n) found = ws; });
+    return found;
+  }
+  function leerFormato(wb){
+    var wc = hojaPorNombre(wb, 'Config'), formato = '';
+    if (!wc) return '';
+    wc.eachRow(function(row, i){
+      if (i === 1) return;
+      if (norm(valorCelda(row.getCell(1))) === 'formato') formato = norm(valorCelda(row.getCell(2)));
+    });
+    return formato;
+  }
+  function tieneTabId(wb){
+    var ok = false;
+    wb.worksheets.forEach(function(ws){
+      if (norm(ws.name) === 'config') return;
+      ws.getRow(1).eachCell(function(c){ if (norm(valorCelda(c)) === 'tabid') ok = true; });
+    });
+    return ok;
+  }
+  function esFormatoHojas(wb){
+    return leerFormato(wb) === 'hojas' || tieneTabId(wb);
+  }
+  function marcado(v){
+    var n = norm(v);
+    return n === '1' || n === 'si' || n === 'true' || n === 'yes' || n === 'x';
+  }
+  function leerHojaTareas(ws){
+    var col = {};
+    ws.getRow(1).eachCell(function(c, n){ col[norm(valorCelda(c))] = n; });
+    if (!col[norm('Tarea')]) return null;
+    function get(row, nombre){ var n = col[norm(nombre)]; return n ? valorCelda(row.getCell(n)) : ''; }
+    var rows = [], tabId = 0;
+    ws.eachRow(function(row, i){
+      if (i === 1) return;
+      var fotos = get(row, 'FotosIds').split(/[,;\s]+/).filter(Boolean);
+      var tid = Number(get(row, 'TabId')) || 0;
+      if (tid && !tabId) tabId = tid;
+      var r = {
+        fecha: aFechaISO(get(row, 'Fecha')), tarea: get(row, 'Tarea'), piso: get(row, 'Piso'), unidad: get(row, 'Unidad'),
+        ambiente: get(row, 'Ambiente'), ejecutado: /^(si|s|x|true|1|ok|hecho|ejecutado)$/.test(norm(get(row, 'Ejecutado'))) ? 'SI' : 'NO',
+        rubro: get(row, 'Rubro'), contratista: get(row, 'Contratista'), ingresado: get(row, 'Ingresado')
+      };
+      if (!r.tarea && !r.piso && !r.unidad && !r.ambiente && !r.rubro && !r.contratista && !fotos.length) return;
+      var id = Number(get(row, 'id')) || 0;
+      if (rows.some(function(x){ return x.id === id && id; })) id = 0;
+      r.id = id; r.fotosDrive = fotos;
+      rows.push(r);
+    });
+    return { rows:rows, tabId:tabId };
+  }
+  function leerExcelLegacy(wb){
+    var ws = hojaPorNombre(wb, 'Tareas') || wb.worksheets[0];
+    if (!ws) throw new Error('El Excel de Drive no tiene hojas.');
+    var col = {};
+    ws.getRow(1).eachCell(function(c, n){ col[norm(valorCelda(c))] = n; });
+    if (!col[norm('Tarea')]) throw new Error('El Excel de Drive no tiene la columna "Tarea" en la fila 1.');
+    function get(row, nombre){ var n = col[norm(nombre)]; return n ? valorCelda(row.getCell(n)) : ''; }
+    var meta = JSON.parse(JSON.stringify(state.meta || {})), tabs = [], porId = {}, porNombre = {}, activa = null;
+    var wc = hojaPorNombre(wb, 'Config');
+    if (wc) wc.eachRow(function(row, i){
+      if (i === 1) return;
+      var k = valorCelda(row.getCell(1)), v = valorCelda(row.getCell(2));
+      if (k.indexOf('meta.') === 0) meta[k.slice(5)] = v;
+      else if (k === 'activa') activa = Number(v);
+      else if (k === 'tab' && Number(v) && !porId[Number(v)]) {
+        var t = { id:Number(v), nombre:(valorCelda(row.getCell(3)) || 'Pestaña').slice(0, 30), rows:[], nextId:Number(valorCelda(row.getCell(4))) || 1, oculta:false };
+        tabs.push(t); porId[t.id] = t; porNombre[norm(t.nombre)] = t;
+      }
+    });
+    function tabPara(id, nombre){
+      var t = (id && porId[id]) || (nombre && porNombre[norm(nombre)]);
+      if (t) return t;
+      var nid = (id && !porId[id]) ? id : tabs.reduce(function(m, x){ return Math.max(m, x.id); }, 0) + 1;
+      t = { id:nid, nombre:(nombre || 'General').slice(0, 30), rows:[], nextId:1, oculta:false };
+      tabs.push(t); porId[nid] = t; porNombre[norm(t.nombre)] = t;
+      return t;
+    }
+    ws.eachRow(function(row, i){
+      if (i === 1) return;
+      var r = {
+        fecha: aFechaISO(get(row, 'Fecha')), tarea: get(row, 'Tarea'), piso: get(row, 'Piso'), unidad: get(row, 'Unidad'),
+        ambiente: get(row, 'Ambiente'), ejecutado: /^(si|s|x|true|1|ok|hecho|ejecutado)$/.test(norm(get(row, 'Ejecutado'))) ? 'SI' : 'NO',
+        rubro: get(row, 'Rubro'), contratista: get(row, 'Contratista'), ingresado: get(row, 'Ingresado')
+      };
+      var fotos = get(row, 'FotosIds').split(/[,;\s]+/).filter(Boolean);
+      if (!r.tarea && !r.piso && !r.unidad && !r.ambiente && !r.rubro && !r.contratista && !fotos.length) return;
+      var t = tabPara(Number(get(row, 'tab')) || 0, get(row, 'Pestaña'));
+      var id = Number(get(row, 'id')) || 0;
+      if (t.rows.some(function(x){ return x.id === id && id; })) id = 0;
+      r.id = id; r.fotosDrive = fotos;
+      t.rows.push(r);
+    });
+    if (!tabs.length) tabPara(1, 'General');
+    tabs.forEach(function(t){
+      var max = t.rows.reduce(function(m, r){ return Math.max(m, r.id || 0); }, 0);
+      t.rows.forEach(function(r){ if (!r.id) r.id = ++max; });
+      t.nextId = Math.max(t.nextId || 1, max + 1);
+    });
+    if (!porId[activa]) activa = porId[state.activa] ? state.activa : tabs[0].id;
+    return { meta:meta, tabs:tabs, activa:activa, formato:'legacy' };
+  }
+  function leerExcelHojas(wb){
+    var meta = JSON.parse(JSON.stringify(state.meta || {})), activa = null;
+    var porId = {}, porHoja = {};
+    var wc = hojaPorNombre(wb, 'Config');
+    if (wc) wc.eachRow(function(row, i){
+      if (i === 1) return;
+      var k = valorCelda(row.getCell(1)), v = valorCelda(row.getCell(2));
+      if (k.indexOf('meta.') === 0) meta[k.slice(5)] = v;
+      else if (k === 'activa') activa = Number(v);
+      else if (k === 'tab' && Number(v)) {
+        var reg = {
+          id: Number(v),
+          nombre: (valorCelda(row.getCell(3)) || '').slice(0, 30),
+          nextId: Number(valorCelda(row.getCell(4))) || 1,
+          oculta: marcado(valorCelda(row.getCell(5))),
+          hoja: valorCelda(row.getCell(6)) || valorCelda(row.getCell(3))
+        };
+        porId[reg.id] = reg;
+        if (reg.hoja) porHoja[norm(reg.hoja)] = reg;
+      }
+    });
+    var tabs = [], usadosIds = {};
+    function tomarId(preferido){
+      var id = preferido || 0;
+      if (!id || usadosIds[id]) {
+        id = tabs.reduce(function(m, t){ return Math.max(m, t.id || 0); }, 0) + 1;
+        while (usadosIds[id]) id++;
+      }
+      usadosIds[id] = 1;
+      return id;
+    }
+    wb.worksheets.forEach(function(ws){
+      if (norm(ws.name) === 'config') return;
+      var parsed = leerHojaTareas(ws);
+      if (!parsed) return;
+      var reg = (parsed.tabId && porId[parsed.tabId]) || porHoja[norm(ws.name)] || null;
+      var id = tomarId((parsed.tabId && !usadosIds[parsed.tabId] && parsed.tabId) || (reg && !usadosIds[reg.id] && reg.id) || 0);
+      var hojaCfg = reg ? (reg.hoja || reg.nombre) : '';
+      var nombre = (reg && norm(hojaCfg) === norm(ws.name) ? (reg.nombre || ws.name) : ws.name).slice(0, 30) || 'Pestaña';
+      var rows = parsed.rows;
+      var max = rows.reduce(function(m, r){ return Math.max(m, r.id || 0); }, 0);
+      rows.forEach(function(r){ if (!r.id) r.id = ++max; });
+      tabs.push({
+        id:id, nombre:nombre, rows:rows,
+        nextId: Math.max((reg && reg.nextId) || 1, max + 1),
+        oculta: reg ? !!reg.oculta : false,
+        _hoja: ws.name
+      });
+    });
+    if (!tabs.length) tabs.push({ id:1, nombre:'General', rows:[], nextId:1, oculta:false, _hoja:'General' });
+    if (!tabs.some(function(t){ return t.id === activa; })) {
+      var vis = null;
+      for (var i = 0; i < tabs.length; i++) if (!tabs[i].oculta) { vis = tabs[i]; break; }
+      activa = vis ? vis.id : tabs[0].id;
+    }
+    return { meta:meta, tabs:tabs, activa:activa, formato:'hojas' };
+  }
   function leerExcel(buf){
     var wb = new window.ExcelJS.Workbook();
     return wb.xlsx.load(buf).then(function(){
-      var ws = wb.getWorksheet('Tareas') || wb.worksheets[0];
-      if (!ws) throw new Error('El Excel de Drive no tiene hojas.');
-      var col = {};
-      ws.getRow(1).eachCell(function(c, n){ col[norm(valorCelda(c))] = n; });
-      if (!col[norm('Tarea')]) throw new Error('El Excel de Drive no tiene la columna "Tarea" en la fila 1.');
-      function get(row, nombre){ var n = col[norm(nombre)]; return n ? valorCelda(row.getCell(n)) : ''; }
-
-      var meta = JSON.parse(JSON.stringify(state.meta || {})), tabs = [], porId = {}, porNombre = {}, activa = null;
-      var wc = wb.getWorksheet('Config');
-      if (wc) wc.eachRow(function(row, i){
-        if (i === 1) return;
-        var k = valorCelda(row.getCell(1)), v = valorCelda(row.getCell(2));
-        if (k.indexOf('meta.') === 0) meta[k.slice(5)] = v;
-        else if (k === 'activa') activa = Number(v);
-        else if (k === 'tab' && Number(v) && !porId[Number(v)]) {
-          var t = { id:Number(v), nombre:(valorCelda(row.getCell(3)) || 'Pestaña').slice(0, 30), rows:[], nextId:Number(valorCelda(row.getCell(4))) || 1 };
-          tabs.push(t); porId[t.id] = t; porNombre[norm(t.nombre)] = t;
-        }
-      });
-      function tabPara(id, nombre){
-        var t = (id && porId[id]) || (nombre && porNombre[norm(nombre)]);
-        if (t) return t;
-        var nid = (id && !porId[id]) ? id : tabs.reduce(function(m, x){ return Math.max(m, x.id); }, 0) + 1;
-        t = { id:nid, nombre:(nombre || 'General').slice(0, 30), rows:[], nextId:1 };
-        tabs.push(t); porId[nid] = t; porNombre[norm(t.nombre)] = t;
-        return t;
-      }
-      ws.eachRow(function(row, i){
-        if (i === 1) return;
-        var r = {
-          fecha: aFechaISO(get(row, 'Fecha')), tarea: get(row, 'Tarea'), piso: get(row, 'Piso'), unidad: get(row, 'Unidad'),
-          ambiente: get(row, 'Ambiente'), ejecutado: /^(si|s|x|true|1|ok|hecho|ejecutado)$/.test(norm(get(row, 'Ejecutado'))) ? 'SI' : 'NO',
-          rubro: get(row, 'Rubro'), contratista: get(row, 'Contratista'), ingresado: get(row, 'Ingresado')
-        };
-        var fotos = get(row, 'FotosIds').split(/[,;\s]+/).filter(Boolean);
-        if (!r.tarea && !r.piso && !r.unidad && !r.ambiente && !r.rubro && !r.contratista && !fotos.length) return;
-        var t = tabPara(Number(get(row, 'tab')) || 0, get(row, 'Pestaña'));
-        var id = Number(get(row, 'id')) || 0;
-        if (t.rows.some(function(x){ return x.id === id; })) id = 0;
-        r.id = id; r.fotosDrive = fotos;
-        t.rows.push(r);
-      });
-      if (!tabs.length) tabPara(1, 'General');
-      tabs.forEach(function(t){
-        var max = t.rows.reduce(function(m, r){ return Math.max(m, r.id || 0); }, 0);
-        t.rows.forEach(function(r){ if (!r.id) r.id = ++max; });
-        t.nextId = Math.max(t.nextId || 1, max + 1);
-      });
-      if (!porId[activa]) activa = porId[state.activa] ? state.activa : tabs[0].id;
-      return { meta:meta, tabs:tabs, activa:activa };
+      if (!wb.worksheets.length) throw new Error('El Excel de Drive no tiene hojas.');
+      if (esFormatoHojas(wb)) return leerExcelHojas(wb);
+      if (hojaPorNombre(wb, 'Tareas')) return leerExcelLegacy(wb);
+      return leerExcelHojas(wb);
     });
+  }
+  function recordarHojas(doc){
+    if (!doc || doc.formato !== 'hojas') { lsSet(LS.hojas, null); return; }
+    var map = {};
+    (doc.tabs || []).forEach(function(t){ map[String(t.id)] = t._hoja || t.nombre; });
+    lsSet(LS.hojas, map);
+  }
+  function podarTabsBorrados(doc){
+    if (!doc || doc.formato !== 'hojas') return;
+    var conocidas = lsGet(LS.hojas, null);
+    if (!conocidas || typeof conocidas !== 'object') return;
+    var vivos = {}, hojasVivas = {};
+    (doc.tabs || []).forEach(function(t){
+      vivos[String(t.id)] = 1;
+      if (t._hoja) hojasVivas[norm(t._hoja)] = 1;
+      hojasVivas[norm(t.nombre)] = 1;
+    });
+    var quedaron = [];
+    state.tabs.forEach(function(t){
+      var previa = conocidas[String(t.id)];
+      if (!previa || vivos[String(t.id)] || hojasVivas[norm(previa)]) { quedaron.push(t); return; }
+      (t.rows || []).forEach(function(r){ (r.fotos || []).forEach(quitarFotoDB); });
+    });
+    if (!quedaron.length) quedaron = [{ id:1, nombre:'General', rows:[], nextId:1, oculta:false }];
+    state.tabs = quedaron;
+    var vis = null;
+    for (var i = 0; i < state.tabs.length; i++) if (!state.tabs[i].oculta) { vis = state.tabs[i]; break; }
+    var act = tabActiva();
+    if (act.oculta && vis) act = vis;
+    state.activa = act.id; state.rows = act.rows; state.nextId = act.nextId;
+    try { localStorage.setItem(KEY, JSON.stringify({ meta:state.meta, tabs:state.tabs, activa:state.activa })); } catch(e){}
+    actualizarListas(); renderTabs(); render();
   }
   function aplicarRemoto(doc){
     var inv = {}, bajar = [];
@@ -1437,7 +1766,11 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
     });
     lsSet(LS.fotos, fotoMap);
     state.meta = doc.meta; state.tabs = doc.tabs; state.activa = doc.activa;
+    var vis = null;
+    for (var i = 0; i < state.tabs.length; i++) if (!state.tabs[i].oculta) { vis = state.tabs[i]; break; }
+    if (tabActiva().oculta && vis) state.activa = vis.id;
     var t = tabActiva(); state.activa = t.id; state.rows = t.rows; state.nextId = t.nextId;
+    recordarHojas(doc);
     try { localStorage.setItem(KEY, JSON.stringify({ meta:state.meta, tabs:state.tabs, activa:state.activa })); } catch(e){}
     document.querySelectorAll('[data-meta]').forEach(function(i){ i.value = state.meta[i.getAttribute('data-meta')] || ''; });
     actualizarListas(); renderTabs(); render();
@@ -1452,18 +1785,20 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
   // --- Sincronización ---
   function sincronizarAhora(interactivo){
     if (interactivo && interactivo.type) interactivo = true; // llamado desde un botón
+    if (syncing) return syncActual || Promise.resolve();
     if (!GOOGLE_CLIENT_ID) { abrirNube(); return Promise.resolve(); }
     if (!navigator.onLine) { estadoNube('Sin conexión · cambios guardados localmente'); mensajeNube('Estás sin conexión. Los cambios se sincronizarán cuando vuelva internet.'); return Promise.resolve(); }
-    if (syncing) return Promise.resolve();
     if (!tokenValido() && !interactivo) {
       cloudUser = null;
+      mostrarCuenta();
       estadoNube(lsGet(LS.linked, false) ? 'Google Drive: tocá Sincronizar para reconectar' : 'Solo en este dispositivo');
       return Promise.resolve();
     }
     var inicio = Date.now();
     var acceso = tokenValido() ? Promise.resolve() : pedirToken(lsGet(LS.linked, false) ? '' : 'consent');
-    return acceso.then(function(){
-      syncing = true; estadoNube('Sincronizando…'); mensajeNube('Sincronizando Excel y fotos con Google Drive…');
+    syncing = true;
+    syncActual = acceso.then(function(){
+      estadoNube('Sincronizando…'); mensajeNube('Sincronizando Excel y fotos con Google Drive…');
       return cargarUsuario();
     }).then(function(){
       return dbOp('readonly', function(s){ return s.getAll(); }).then(function(all){ (all || []).forEach(function(f){ photoCache[f.id] = f; }); }).catch(function(){});
@@ -1472,40 +1807,52 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
         return subirFotos().then(construirExcel).then(function(blob){
           if (remoto) return api(UPLOAD + '/' + remoto.id + '?uploadType=media&fields=id,modifiedTime', { method:'PATCH', headers:{ 'Content-Type':XLSX_MIME }, body:blob }).then(json);
           return subirMultipart({ name:ARCHIVO, mimeType:XLSX_MIME, parents:[driveIds.folder] }, blob);
-        }).then(function(j){ driveIds.file = j.id; lsSet(LS.ids, driveIds); lastRemoteModified = j.modifiedTime; });
+        }).then(function(j){
+          driveIds.file = j.id; lsSet(LS.ids, driveIds); lastRemoteModified = j.modifiedTime;
+          if (hojasEscritas) lsSet(LS.hojas, hojasEscritas);
+        });
+      }
+      function leerRemoto(){
+        return api(DRIVE + '/' + remoto.id + '?alt=media').then(function(r){ return r.arrayBuffer(); }).then(leerExcel);
+      }
+      function subirRespetandoBajas(){
+        if (!remoto || remoto.modifiedTime === lastRemoteModified) return subir();
+        return leerRemoto().then(function(doc){ podarTabsBorrados(doc); return subir(); });
       }
       function bajar(){
-        return api(DRIVE + '/' + remoto.id + '?alt=media').then(function(r){ return r.arrayBuffer(); })
-          .then(leerExcel).then(aplicarRemoto).then(function(){ lastRemoteModified = remoto.modifiedTime; });
+        return leerRemoto().then(aplicarRemoto).then(function(){ lastRemoteModified = remoto.modifiedTime; });
       }
       if (!remoto) return subir();
       var remotoCambio = remoto.modifiedTime !== lastRemoteModified;
       var localCambio = lastLocalChange > lastCloudSync;
       // Primera vinculación: no pisar en silencio datos locales preexistentes.
       if (!lastCloudSync) {
-        if (localTieneDatos() && confirm('Tu Google Drive ya tiene un checklist.xlsx y este dispositivo también tiene tareas guardadas. ¿Querés subir y conservar los datos de este dispositivo? Aceptar = subir este dispositivo. Cancelar = descargar el Excel de Drive.')) return subir();
+        if (localTieneDatos() && confirm('Tu Google Drive ya tiene un checklist.xlsx y este dispositivo también tiene tareas guardadas. ¿Querés subir y conservar los datos de este dispositivo? Aceptar = subir este dispositivo. Cancelar = descargar el Excel de Drive.')) return subirRespetandoBajas();
         return bajar();
       }
       if (localCambio && remotoCambio) {
-        if (confirm('Hay cambios en este dispositivo y también en el Excel de Google Drive. ¿Querés conservar este dispositivo y subir sus cambios? Aceptar = subir este dispositivo. Cancelar = descargar el Excel de Drive.')) return subir();
+        if (confirm('Hay cambios en este dispositivo y también en el Excel de Google Drive. ¿Querés conservar este dispositivo y subir sus cambios? Aceptar = subir este dispositivo. Cancelar = descargar el Excel de Drive.')) return subirRespetandoBajas();
         return bajar();
       }
-      if (localCambio) return subir();
+      if (localCambio) return subirRespetandoBajas();
       if (remotoCambio) return bajar();
     }).then(function(){
       lastCloudSync = inicio;
       lsSet(LS.sync, lastCloudSync); lsSet(LS.remote, lastRemoteModified);
       estadoNube('Google Drive · sincronizado ✓'); mensajeNube('Sincronización completada' + (cloudUser ? ' (' + cloudUser.email + ').' : '.'));
+      mostrarCuenta();
       linkCarpeta();
     }).catch(function(err){
       console.error('Error de sincronización 3dF:', err);
-      if (err && err.auth) cloudUser = null;
+      if (err && err.auth) { cloudUser = null; mostrarCuenta(); }
       estadoNube(err && err.auth ? 'Google Drive: tocá Sincronizar para reconectar' : 'Error de sincronización');
       mensajeNube('No se pudo sincronizar: ' + ((err && err.message) || 'revisá la conexión.'));
     }).then(function(){
       syncing = false;
+      syncActual = null;
       if (lastLocalChange > lastCloudSync && tokenValido()) programarSync(true);
     });
+    return syncActual;
   }
   function programarSync(reintento){
     if (!LS) return; // todavía inicializando
@@ -1538,6 +1885,7 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
     lsSet(LS.linked, false);
     if (t && window.google && google.accounts && google.accounts.oauth2) { try { google.accounts.oauth2.revoke(t, function(){}); } catch(e){} }
     linkCarpeta();
+    mostrarCuenta();
     estadoNube('Solo en este dispositivo');
     mensajeNube('Sesión cerrada. Los datos siguen guardados en este dispositivo y el Excel queda en tu Google Drive.');
   });
@@ -1547,6 +1895,29 @@ td input:focus,td textarea:focus{border-color:var(--negro);background:var(--blan
   else if (tokenValido()) { estadoNube('Conectando con Google Drive…'); sincronizarAhora(false); }
   else if (lsGet(LS.linked, false)) estadoNube('Google Drive: tocá Sincronizar para reconectar');
   else estadoNube('Solo en este dispositivo');
+  mostrarCuenta();
+
+  try {
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+      window.__3df = {
+        get state(){ return state; },
+        construirExcel: construirExcel,
+        leerExcel: leerExcel,
+        podarTabsBorrados: podarTabsBorrados,
+        nombreFotoDrive: nombreFotoDrive,
+        nombreHoja: nombreHoja,
+        sanitizarNombreArchivo: sanitizarNombreArchivo,
+        entregar: entregar,
+        esMovilCompartir: esMovilCompartir,
+        armarExcelVisible: armarExcelVisible,
+        setEmail: function(email){
+          cloudUser = email ? { email:email, nombre:'' } : null;
+          if (!email) { accessToken = null; tokenExp = 0; }
+          mostrarCuenta();
+        }
+      };
+    }
+  } catch (e) {}
 
 })();
 </script>
