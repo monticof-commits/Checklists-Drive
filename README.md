@@ -9,13 +9,26 @@ Se sigue editando todo **desde la app**, también en el celular y sin conexión.
 ```
 Mi unidad/
 └── 3dF Checklist/
-    ├── Planillas/
-    │   └── {obra}/
-    │       ├── checklist.xlsx
-    │       └── fotos/{piso}/{tarea}/*.jpg
+    ├── Oficial/
+    │   └── Planillas/
+    │       └── {obra}/
+    │           ├── checklist.xlsx
+    │           └── fotos/{piso}/{tarea}/*.jpg
+    ├── Versiones/
+    │   └── {empleado}_{YYYY-MM-DD-HHMM}/
+    │       └── Planillas/
+    │           └── {obra}/
+    │               ├── checklist.xlsx
+    │               └── fotos/…
     └── Dashboard Mensual/
 ```
-Cada obra tiene su Excel. Cada pestaña de esa obra es su propia hoja (nombre recortado a 31 caracteres y sin `\ / * ? : [ ]`). La hoja **Config** guarda la obra, el id de cada pestaña, el próximo id, si está oculta, si es importante y el nombre de la hoja. Un Excel viejo suelto (`3dF Checklist/checklist.xlsx` o `Planillas/checklist.xlsx`) se parte por obra en la próxima sincronización y después va a la papelera. La carpeta global `fotos/` también se mueve adentro de cada obra y se tira.
+**Oficial** es la versión oficial. Si la pantalla dice `Viendo: Oficial`, la sincronización escribe solo en `Oficial/Planillas/{obra}/`.
+
+**Versiones** es hermana de Oficial (no vive adentro de Planillas). **Importar información** crea `Versiones/{empleado}_{YYYY-MM-DD-HHMM}/` y deja esa carpeta como versión activa: la sync siguiente sube ahí y no pisa Oficial. **Versión oficial** vuelve el puntero a Oficial y recarga esa copia; no borra ninguna carpeta de Versiones.
+
+Si el Drive todavía tiene el árbol viejo `3dF Checklist/Planillas/{obra}/` (sin `Oficial/`), la primera sincronización **mueve** esa carpeta a `Oficial/Planillas/` (el id no cambia y no se copia ni se vacía). Si `Oficial/Planillas` ya tiene archivos, el `Planillas` viejo se deja en la raíz sin borrarlo. Un Excel suelto (`3dF Checklist/checklist.xlsx` o `Oficial/Planillas/checklist.xlsx`) se parte por obra en la próxima sincronización **estando en Oficial** y después va a la papelera. La carpeta global `fotos/` también se mueve adentro de cada obra de Oficial y se tira; eso no corre mientras se está viendo una versión importada.
+
+Cada obra tiene su Excel. Cada pestaña de esa obra es su propia hoja (nombre recortado a 31 caracteres y sin `\ / * ? : [ ]`). La hoja **Config** guarda la obra, el id de cada pestaña, el próximo id, si está oculta, si es importante y el nombre de la hoja.
 
 Ocultar una pestaña solo la saca de la barra de esa obra. Cada subida a Drive escribe **todas** las pestañas de la obra. **Mostrar todas** las vuelve a mostrar en esa obra. Si se borra una hoja en el Excel, la próxima sincronización elimina esa pestaña y sus tareas en la app.
 
@@ -28,10 +41,12 @@ Los caracteres que no pueden ir en un archivo (`\ / : * ? " < > |`) se reemplaza
 ## Exportar
 - **PDF** y **CSV** exportan la pestaña visible, con los filtros activos. En el celular se abre el menú de compartir con el archivo; si eso no entrega el archivo, se descarga. En la compu se descarga directo.
 - **Excel** (Exportar Excel), si hay sesión de Google, primero sincroniza con Drive y después arma un libro con una hoja por cada pestaña visible. Las ocultas no entran en esa descarga. El `checklist.xlsx` de Drive sigue teniendo todas.
+- **Exportar información** arma un ZIP de la obra que está en pantalla (la versión activa): `manifest.json` (schema 1, obra, quién exportó, fecha), `checklist.json`, las fotos en binario y, si el generador de Excel ya cargó, `checklist.xlsx`. Sale del estado local; no hace falta Drive. **Importar información** lee ese ZIP, pide el nombre del empleado si Google no tiene nombre para mostrar, y abre una versión nueva. El id queda en `localStorage` (`3df-gdrive-version-activa`) y se conserva al recargar. Si Drive no está conectado, los datos quedan en el dispositivo con esa versión; al conectar, se crea `Versiones/…` y se sincroniza ahí.
 
 ## Cómo sincroniza
 - Los datos se guardan siempre primero en el dispositivo (localStorage + fotos en IndexedDB).
 - Se sincroniza al iniciar sesión, al tocar **Sincronizar ahora**, al volver a la app, y ~2 s después de cada cambio.
+- Cada subida pasa por la versión activa. Con `Viendo: Oficial` el destino es `Oficial/Planillas/`. Con una versión importada el destino es `Versiones/{empleado}_{fecha}/Planillas/`. Si esa carpeta no está dentro de `Versiones`, la subida se cancela.
 - Si solo cambió la app → sube el Excel. Si solo cambió el Excel en Drive → lo descarga. Si cambiaron los dos → pregunta: **Aceptar** = subir este dispositivo, **Cancelar** = descargar el Excel de Drive.
 - La primera vez que se vincula un dispositivo que ya tiene tareas, también pregunta antes de pisar algo.
 

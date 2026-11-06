@@ -19,6 +19,7 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
 :root{
   --negro:#000;
@@ -80,6 +81,22 @@ header :focus-visible{outline-color:var(--blanco)}
   display:block;grid-row:4;height:auto;min-height:0;align-self:start;margin:0;
   font-size:11px;font-weight:600;text-align:center;max-width:100%;overflow-wrap:anywhere;line-height:1.35;color:var(--gris-2);
 }
+.version-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;max-width:100%}
+.version-badge{
+  margin:0;font-size:12px;font-weight:700;letter-spacing:.01em;
+  border:1px solid var(--blanco);padding:4px 8px;line-height:1.3;
+}
+.version-bar select{
+  background:#000;color:var(--blanco);border:2px solid var(--blanco);
+  min-height:32px;padding:4px 8px;font-size:12px;max-width:100%;
+}
+.version-bar select option{background:#fff;color:#000}
+.version-bar .btn{
+  padding:6px 10px;min-height:32px;font-size:12px;
+  background:transparent;color:var(--blanco);border:2px solid var(--blanco);
+}
+.version-badge{overflow-wrap:anywhere}
+#version-oficial[hidden],#importar-archivo[hidden]{display:none}
 .ficha{
   display:grid;grid-template-columns:64px minmax(106px,1fr);gap:8px 12px;
   font-size:12px;color:var(--gris-2);text-align:left;align-items:center;align-self:flex-start;
@@ -385,6 +402,7 @@ td.c-estado{padding-left:2px;padding-right:2px}
   .ficha input{font-size:16px;height:40px}
   .header-sync{max-width:none;width:100%;flex:1 1 100%;grid-template-rows:repeat(3,44px) auto}
   .header-sync .btn,.header-sync #cuenta-nube{height:44px;min-height:44px;max-height:44px}
+  .version-bar .btn,.version-bar select{min-height:44px}
   .nube-panel{padding:22px 18px}
   .nube-acciones .btn{flex-basis:100%}
   .obras{padding:12px}
@@ -408,6 +426,11 @@ td.c-estado{padding-left:2px;padding-right:2px}
   <div class="titulo">
     <h1>CHECKLIST TAREAS</h1>
     <div class="obra"><label for="obra">Obra:</label><input id="obra" data-meta="obra" autocomplete="off"><button class="btn" id="agregar-obra" type="button">+ Nueva obra</button></div>
+    <div class="version-bar">
+      <p id="version-badge" class="version-badge" aria-live="polite">Viendo: Oficial</p>
+      <select id="version-selector" aria-label="Elegir versión"></select>
+      <button class="btn" id="version-oficial" type="button" hidden>Versión oficial</button>
+    </div>
   </div>
   <div class="header-sync" role="group" aria-label="Cuenta, Drive y dashboard">
     <button class="btn" id="cuenta-nube" type="button" aria-label="Cuenta y sincronización"><span id="cuenta-etiqueta">Cuenta / sincronización</span><span id="cuenta-email" hidden></span></button>
@@ -500,12 +523,15 @@ td.c-estado{padding-left:2px;padding-right:2px}
           <button class="btn" id="pdf" type="button">Exportar PDF</button>
           <button class="btn" id="xls" type="button">Exportar Excel</button>
           <button class="btn" id="csv" type="button">Exportar CSV</button>
+          <button class="btn" id="exportar-info" type="button">Exportar información</button>
+          <button class="btn" id="importar-info" type="button">Importar información</button>
+          <input id="importar-archivo" type="file" accept=".zip,application/zip" hidden>
         </div>
         <label class="chk"><input type="checkbox" id="pdf-fotos" checked> Fotos en PDF y Excel</label>
       </div>
     </div>
   </section>
-  <p class="pie">Los cambios se guardan automáticamente en este dispositivo. Iniciá sesión con Google en Cuenta / sincronización para guardarlos también en tu Google Drive.</p>
+  <p class="pie">Los cambios se guardan en este dispositivo. Con Google conectado se suben solo a la versión que estás viendo: Oficial, o una carpeta dentro de Versiones si importaste un paquete.</p>
 </div>
 </main>
 
@@ -514,7 +540,7 @@ td.c-estado{padding-left:2px;padding-right:2px}
   <section class="nube-panel" role="dialog" aria-modal="true" aria-labelledby="nube-titulo">
     <button type="button" id="nube-cerrar" class="nube-cerrar" aria-label="Cerrar">×</button>
     <h2 id="nube-titulo">Google Drive</h2>
-    <p class="nube-desc">Cada edificio guarda su Excel y sus fotos juntos, dentro de la carpeta <b>3dF Checklist</b>: <b>Planillas/{obra}/checklist.xlsx</b> y <b>Planillas/{obra}/fotos/piso/tarea</b>. Los dashboards van a <b>Dashboard Mensual</b>. Seguís editando en la app, también sin conexión; los cambios se suben al sincronizar desde Cuenta / sincronización.</p>
+    <p class="nube-desc">Cada edificio guarda su Excel y sus fotos dentro de <b>3dF Checklist</b>. La versión en pantalla define la carpeta: <b>Oficial/Planillas/{obra}/</b> (checklist.xlsx y fotos) o <b>Versiones/{empleado}_{fecha}/Planillas/{obra}/</b>. Los dashboards siguen en <b>Dashboard Mensual</b>. Importar nunca pisa Oficial. Sin conexión se edita igual; al sincronizar se sube solo a la versión activa.</p>
     <div id="nube-setup" class="nube-desc nube-setup" hidden>
       <b>Falta configurar el acceso a Google (una sola vez, gratis):</b>
       <ol>
@@ -606,7 +632,8 @@ td.c-estado{padding-left:2px;padding-right:2px}
     actualizarFechaDocumento();
     var t = tabActiva(); t.rows = state.rows; t.nextId = state.nextId;
     try { localStorage.setItem(KEY, JSON.stringify({ meta:state.meta, tabs:state.tabs, activa:state.activa })); } catch(e){}
-    if (typeof programarSync === 'function') programarSync();
+    if (!pausaSnapshot && typeof persistirSnapshotVersion === 'function') persistirSnapshotVersion();
+    if (!pausaSync && typeof programarSync === 'function') programarSync();
     if(dashboardInitialized){clearTimeout(dashboardTimer);dashboardTimer=setTimeout(actualizarAvisos,250);}
   }
 
@@ -735,6 +762,7 @@ td.c-estado{padding-left:2px;padding-right:2px}
     var preferida = null;
     for (var i = 0; i < tabs.length; i++) if (!tabs[i].oculta) { preferida = tabs[i]; break; }
     irATab((preferida || tabs[0]).id);
+    if (typeof pintarVersion === 'function') pintarVersion();
   }
   function renderObras(){
     var ul = $('#obras-lista'); if (!ul) return;
@@ -1011,6 +1039,7 @@ td.c-estado{padding-left:2px;padding-right:2px}
         t.obra = i.value;
         state.meta.obra = i.value; // default para pestañas/obras nuevas
         guardar(); renderObras(); renderTabs();
+        if (typeof pintarVersion === 'function') pintarVersion();
         return;
       }
       state.meta[key] = i.value; guardar();
@@ -1108,6 +1137,7 @@ td.c-estado{padding-left:2px;padding-right:2px}
     state.meta.obra = nombre;
     irATab(id);
     var oi = $('#obra'); if (oi) { oi.focus(); oi.select(); }
+    if (typeof pintarVersion === 'function') pintarVersion();
   }
   function borrarTab(){
     var t = tabActiva();
@@ -1787,17 +1817,22 @@ td.c-estado{padding-left:2px;padding-right:2px}
   var GOOGLE_CLIENT_ID = '998929723356-hdjao8aaqovh9ki23tdq3g7ofuf0hq48.apps.googleusercontent.com';
   var DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
   var CARPETA = '3dF Checklist', ARCHIVO = 'checklist.xlsx', CARPETA_FOTOS = 'fotos';
+  var VERSION_OFICIAL = 'oficial';
   var FOLDER_MIME = 'application/vnd.google-apps.folder';
   var XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   var DRIVE = 'https://www.googleapis.com/drive/v3/files';
   var UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
   var LS = { change:'3df-checklist-local-change', sync:'3df-checklist-last-sync', remote:'3df-gdrive-remote-modified',
              ids:'3df-gdrive-ids', fotos:'3df-gdrive-fotos', fotoNombres:'3df-gdrive-foto-nombres', fotoCarpetas:'3df-gdrive-foto-carpetas', hojas:'3df-gdrive-hojas',
-             linked:'3df-gdrive-vinculado', token:'3df-gdrive-token' };
+             linked:'3df-gdrive-vinculado', token:'3df-gdrive-token',
+             version:'3df-gdrive-version-activa', versiones:'3df-gdrive-versiones',
+             syncVer:'3df-gdrive-sync-por-version', fotosVer:'3df-gdrive-fotos-por-version',
+             cacheVer:'3df-checklist-versiones-cache', obraVer:'3df-checklist-obra-version' };
   function lsGet(k, def){ try { var v = localStorage.getItem(k); return v == null ? def : JSON.parse(v); } catch(e){ return def; } }
   function lsSet(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
 
   var accessToken = null, tokenExp = 0, cloudUser = null, syncTimer = null, syncing = false, syncActual = null, hojasEscritas = null;
+  var pausaSync = false, pausaSnapshot = false, forzarBajada = false, pintandoVersion = false;
   var lastLocalChange = Number(lsGet(LS.change, 0)) || 0;
   var lastCloudSync = Number(lsGet(LS.sync, 0)) || 0;
   var lastRemoteModified = lsGet(LS.remote, '') || '';
@@ -1806,6 +1841,8 @@ td.c-estado{padding-left:2px;padding-right:2px}
   var fotoNombres = lsGet(LS.fotoNombres, {}) || {};
   var fotoCarpetas = lsGet(LS.fotoCarpetas, {}) || {};
   try { var tk = JSON.parse(sessionStorage.getItem(LS.token) || 'null'); if (tk && tk.e > Date.now()) { accessToken = tk.t; tokenExp = tk.e; } } catch(e){}
+  cargarSyncDeVersion(versionActivaId());
+  persistirSnapshotVersion();
 
   var nubeModal = document.getElementById('nube-modal');
   var nubeEstado = document.getElementById('estado-nube');
@@ -1814,9 +1851,18 @@ td.c-estado{padding-left:2px;padding-right:2px}
   var nubeCarpeta = document.getElementById('nube-carpeta');
   function mensajeNube(s){ if (nubeMensaje) nubeMensaje.textContent = s || ''; }
   function estadoNube(s){ if (nubeEstado) nubeEstado.textContent = s; }
+  function carpetaVisibleId(){
+    if (versionActivaId() !== VERSION_OFICIAL && driveIds.versionFolder) return driveIds.versionFolder;
+    if (versionActivaId() === VERSION_OFICIAL && driveIds.oficial) return driveIds.oficial;
+    return driveIds.folder || '';
+  }
   function linkCarpeta(){
-    if (driveIds.folder && cloudUser) { nubeCarpeta.href = 'https://drive.google.com/drive/folders/' + driveIds.folder; nubeCarpeta.hidden = false; }
-    else nubeCarpeta.hidden = true;
+    var id = carpetaVisibleId();
+    if (id && (cloudUser || tokenValido())) {
+      nubeCarpeta.href = 'https://drive.google.com/drive/folders/' + id;
+      nubeCarpeta.hidden = false;
+      nubeCarpeta.textContent = versionActivaId() === VERSION_OFICIAL ? 'Abrir carpeta Oficial en Google Drive' : 'Abrir carpeta de la versión en Google Drive';
+    } else nubeCarpeta.hidden = true;
   }
   function emailSesion(){
     if (cloudUser && cloudUser.email) return cloudUser.email;
@@ -1861,11 +1907,9 @@ td.c-estado{padding-left:2px;padding-right:2px}
       estadoNube('No hay nadie logueado');
       return;
     }
-    if (driveIds.folder) {
-      window.open('https://drive.google.com/drive/folders/' + driveIds.folder, '_blank', 'noopener');
-    } else {
-      window.open('https://drive.google.com/drive/my-drive', '_blank', 'noopener');
-    }
+    var id = carpetaVisibleId();
+    if (id) window.open('https://drive.google.com/drive/folders/' + id, '_blank', 'noopener');
+    else window.open('https://drive.google.com/drive/my-drive', '_blank', 'noopener');
   });
   document.getElementById('nube-cerrar').addEventListener('click', cerrarNube);
   nubeModal.addEventListener('click', function(e){ if (e.target === nubeModal) cerrarNube(); });
@@ -1939,19 +1983,102 @@ td.c-estado{padding-left:2px;padding-right:2px}
       return buscarArchivo(nombre, padre, FOLDER_MIME).then(function(x){ return x ? x.id : crearCarpeta(nombre, padre); });
     });
   }
+  function decidirMigracionPlanillas(tieneOficial, tieneLegado, hijosOficial, hijosLegado){
+    if (tieneLegado && !tieneOficial) return 'mover-carpeta';
+    if (tieneLegado && tieneOficial && hijosOficial > 0) return 'dejar-legado';
+    if (tieneLegado && tieneOficial && hijosOficial === 0 && hijosLegado > 0) return 'mover-hijos';
+    if (tieneOficial) return 'usar-oficial';
+    return 'crear-oficial';
+  }
+  function buscarCarpeta(nombre, padre){
+    return buscarArchivo(nombre, padre, FOLDER_MIME);
+  }
+  function migrarPlanillasLegado(){
+    // Árbol viejo: 3dF Checklist/Planillas/{obra}. Se mueve entero a Oficial/Planillas
+    // (el id de la carpeta no cambia). Si Oficial/Planillas ya tiene archivos, el legado
+    // queda intacto en la raíz: no se borra ni se pisa.
+    return buscarCarpeta('Planillas', driveIds.oficial).then(function(oficial){
+      return buscarCarpeta('Planillas', driveIds.folder).then(function(legado){
+        if (legado && oficial && legado.id === oficial.id) return oficial.id;
+        if (legado && !oficial) {
+          return moverAPadre(legado.id, driveIds.oficial).then(function(){ return legado.id; });
+        }
+        if (legado && oficial) {
+          return listarHijos(oficial.id).then(function(hijosOficial){
+            return listarHijos(legado.id).then(function(hijosLegado){
+              var modo = decidirMigracionPlanillas(true, true, hijosOficial.length, hijosLegado.length);
+              if (modo === 'dejar-legado') {
+                driveIds.planillasLegado = legado.id;
+                return oficial.id;
+              }
+              if (modo !== 'mover-hijos') return oficial.id;
+              return hijosLegado.reduce(function(p, hijo){
+                return p.then(function(){ return moverAPadre(hijo.id, oficial.id); });
+              }, Promise.resolve()).then(function(){
+                return listarHijos(legado.id).then(function(rest){
+                  if (rest.length) return oficial.id;
+                  return papeleraDrive(legado.id).catch(function(e){ if (e && e.auth) throw e; }).then(function(){ return oficial.id; });
+                });
+              });
+            });
+          });
+        }
+        if (oficial) return oficial.id;
+        return crearCarpeta('Planillas', driveIds.oficial);
+      });
+    });
+  }
+  function carpetaDeVersion(label){
+    if (!driveIds.versionFolders || typeof driveIds.versionFolders !== 'object') driveIds.versionFolders = {};
+    return carpetaHija(driveIds.versionFolders[label] || null, label, driveIds.versiones).then(function(id){
+      driveIds.versionFolders[label] = id;
+      driveIds.versionFolder = id;
+      return id;
+    });
+  }
+  function apuntarPlanillasActiva(oficialPlanillasId){
+    var vid = versionActivaId();
+    if (driveIds.planillasVersion !== vid) {
+      driveIds.filesByObra = {};
+      driveIds.file = null;
+      driveIds.planillas = null;
+    }
+    var lista = vid === VERSION_OFICIAL
+      ? Promise.resolve(oficialPlanillasId)
+      : carpetaDeVersion(vid).then(function(versionFolderId){
+          return buscarCarpeta('Planillas', versionFolderId).then(function(existente){
+            return existente ? existente.id : crearCarpeta('Planillas', versionFolderId);
+          });
+        });
+    return lista.then(function(id){
+      driveIds.planillas = id;
+      driveIds.planillasVersion = vid;
+      driveIds.oficialPlanillas = oficialPlanillasId;
+      if (driveIds.fotos) driveIds.fotos = null;
+      lsSet(LS.ids, driveIds);
+    });
+  }
   function asegurarCarpetas(){
-    // 3dF Checklist/Planillas/{obra}/checklist.xlsx + fotos/… — never a root Excel or global fotos/.
+    // 3dF Checklist/Oficial/Planillas/{obra} o Versiones/{id}/Planillas/{obra}.
+    // Dashboard Mensual sigue al lado de Oficial, en la raíz del checklist.
     return carpetaHija(driveIds.folder, CARPETA, 'root').then(function(id){
-      if (id !== driveIds.folder) { driveIds.file=null; driveIds.fotos=null; driveIds.planillas=null; driveIds.dashboard=null; driveIds.filesByObra={}; }
-      driveIds.folder=id;
-      return infoArchivo(id).then(function(f){ if(f && f.name !== CARPETA) return renombrarArchivo(id,CARPETA); });
+      if (id !== driveIds.folder) {
+        driveIds.file = null; driveIds.fotos = null; driveIds.planillas = null; driveIds.oficial = null;
+        driveIds.versiones = null; driveIds.dashboard = null; driveIds.filesByObra = {};
+        driveIds.versionFolders = {}; driveIds.planillasVersion = null; driveIds.oficialPlanillas = null;
+      }
+      driveIds.folder = id;
+      return infoArchivo(id).then(function(f){ if (f && f.name !== CARPETA) return renombrarArchivo(id, CARPETA); });
     }).then(function(){
-      return carpetaHija(driveIds.planillas,'Planillas',driveIds.folder);
+      return carpetaHija(driveIds.oficial, 'Oficial', driveIds.folder);
     }).then(function(id){
-      driveIds.planillas=id;
-      // Stop tracking a raíz fotos folder; photos live under each edificio.
-      if (driveIds.fotos) { driveIds.fotos=null; }
-      lsSet(LS.ids,driveIds);
+      driveIds.oficial = id;
+      return carpetaHija(driveIds.versiones, 'Versiones', driveIds.folder);
+    }).then(function(id){
+      driveIds.versiones = id;
+      return migrarPlanillasLegado();
+    }).then(function(oficialPlanillasId){
+      return apuntarPlanillasActiva(oficialPlanillasId);
     });
   }
   function listarHijos(padre, mime){
@@ -2014,8 +2141,10 @@ td.c-estado{padding-left:2px;padding-right:2px}
     });
   }
   function migrarEstructuraDrive(remotoInfo){
+    // Solo en Oficial. Una versión importada no parte Excels viejos ni mueve fotos: eso escribiría fuera de Versiones.
+    if (versionActivaId() !== VERSION_OFICIAL) return Promise.resolve(remotoInfo);
     // 1) Legacy Planillas/checklist.xlsx (or 3dF Checklist/checklist.xlsx) → per-obra workbooks, then trash.
-    // 2) Global 3dF Checklist/fotos/{obra}/… → Planillas/{obra}/fotos/…, then trash global fotos.
+    // 2) Global 3dF Checklist/fotos/{obra}/… → Oficial/Planillas/{obra}/fotos/…, then trash global fotos.
     function migrarLegacyExcel(){
       if (!remotoInfo || !remotoInfo.legacy) return Promise.resolve(remotoInfo);
       var legacy = remotoInfo.legacy;
@@ -2128,6 +2257,7 @@ td.c-estado{padding-left:2px;padding-right:2px}
         // Otra cuenta de Google en este dispositivo: empezar la vinculación de cero.
         driveIds = {}; fotoMap = {}; fotoNombres = {}; fotoCarpetas = {}; lsSet(LS.fotoCarpetas, fotoCarpetas); lastCloudSync = 0; lastRemoteModified = '';
         lsSet(LS.fotos, fotoMap); lsSet(LS.fotoNombres, fotoNombres); lsSet(LS.sync, 0); lsSet(LS.remote, ''); lsSet(LS.hojas, null);
+        lsSet(LS.syncVer, {}); lsSet(LS.fotosVer, {});
       }
       driveIds.email = email; lsSet(LS.ids, driveIds);
       cloudUser = { email: email, nombre: (j.user && j.user.displayName) || '' };
@@ -2225,6 +2355,7 @@ td.c-estado{padding-left:2px;padding-right:2px}
     quitarFotoDB(id);
     delete fotoMap[id]; delete fotoNombres[id]; delete fotoCarpetas[id];
     lsSet(LS.fotos, fotoMap); lsSet(LS.fotoNombres, fotoNombres); lsSet(LS.fotoCarpetas, fotoCarpetas);
+    if (typeof guardarMarcasVersion === 'function') guardarMarcasVersion();
     if (idDrive && fotosBorrar.indexOf(idDrive) < 0) { fotosBorrar.push(idDrive); lsSet(LS_FOTOS_BORRAR, fotosBorrar); }
     guardar(); render();
     if (idDrive && tokenValido()) procesarFotosBorrar().catch(function(){});
@@ -2232,11 +2363,21 @@ td.c-estado{padding-left:2px;padding-right:2px}
   function subirFotos(){
     return procesarFotosBorrar().then(subirFotosPendientes);
   }
+  function assertVersionEstable(vid, planillas){
+    if (versionActivaId() !== vid || driveIds.planillas !== planillas) {
+      throw new Error('Cambió la versión activa durante la sincronización. No se escribió nada.');
+    }
+  }
   function subirFotosPendientes(){
+    var vid = versionActivaId();
+    var planillas = driveIds.planillas;
     var carpetas={};
     function destino(item){ var key=JSON.stringify(['planillas',item.obra,'fotos',item.piso,item.tarea]); if(!carpetas[key]) carpetas[key]=carpetaFotosObra(item.obra).then(function(id){return carpetaHija(null,item.piso,id);}).then(function(id){return carpetaHija(null,item.tarea,id);}); return carpetas[key]; }
+    return escrituraSegura().then(function(){
+    assertVersionEstable(vid, planillas);
     return planFotos().reduce(function(p, item){
       return p.then(function(){
+        assertVersionEstable(vid, planillas);
         var f = photoCache[item.id];
         var idDrive = fotoMap[item.id];
         if (!idDrive) {
@@ -2262,7 +2403,8 @@ td.c-estado{padding-left:2px;padding-right:2px}
           fotoNombres[item.id] = item.nombre; lsSet(LS.fotoNombres, fotoNombres);
         }).catch(function(e){ if (e && e.auth) throw e; });
       });
-    }, Promise.resolve());
+    }, Promise.resolve()).then(function(){ guardarMarcasVersion(); });
+    });
   }
   function bajarFoto(idLocal, idDrive){
     var creado='';return api(DRIVE+'/'+idDrive+'?fields=name,createdTime,imageMediaMetadata(time)').then(json).then(function(info){fotoNombres[idLocal]=info.name;creado=info.createdTime||'';lsSet(LS.fotoNombres,fotoNombres);return api(DRIVE + '/' + idDrive + '?alt=media');}).then(function(r){ return r.blob(); }).then(blobDataUrl).then(function(data){
@@ -2589,14 +2731,680 @@ td.c-estado{padding-left:2px;padding-right:2px}
       var key = i.getAttribute('data-meta');
       i.value = key === 'obra' ? obraActiva() : (state.meta[key] || '');
     });
-    actualizarListas(); renderTabs(); render();
+    actualizarListas(); renderTabs(); renderObras(); render();
+    if (typeof pintarVersion === 'function') pintarVersion();
     return bajar.reduce(function(p, x){
       return p.then(function(){ return bajarFoto(x[0], x[1]).catch(function(e){ if (e.auth) throw e; console.warn('Foto no disponible en Drive:', x[1], e); }); });
-    }, Promise.resolve()).then(render);
+    }, Promise.resolve()).then(function(){
+      if (typeof persistirSnapshotVersion === 'function') persistirSnapshotVersion();
+      render();
+    });
   }
   function localTieneDatos(){
     return (state.tabs || []).some(function(t){ return (t.rows || []).length > 0; });
   }
+
+
+  // --- Versión activa: Oficial o Versiones/{empleado}_{fecha} ---
+  // La copia de trabajo sigue en KEY. Cada versión además tiene su snapshot
+  // (3df-checklist-versiones-cache) y, por obra, 3df-checklist-obra-version.
+  function versionActivaId(){
+    if (!LS) return VERSION_OFICIAL;
+    var id = lsGet(LS.version, VERSION_OFICIAL);
+    if (!id || id === 'Oficial' || id === VERSION_OFICIAL) return VERSION_OFICIAL;
+    return String(id);
+  }
+  function catalogoVersiones(){
+    var list = lsGet(LS.versiones, []);
+    return Array.isArray(list) ? list : [];
+  }
+  function guardarCatalogo(list){ lsSet(LS.versiones, list); }
+  function registroVersion(id){
+    var list = catalogoVersiones();
+    for (var i = 0; i < list.length; i++) if (list[i] && list[i].id === id) return list[i];
+    return null;
+  }
+  function fechaStamp(stamp){
+    var m = /^(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})$/.exec(String(stamp || ''));
+    if (!m) return '';
+    return m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5];
+  }
+  function fechaDeRegistro(reg, id){
+    if (reg && reg.stamp) return fechaStamp(reg.stamp);
+    var m = /(\d{4}-\d{2}-\d{2}-\d{4})/.exec(id || '');
+    return m ? fechaStamp(m[1]) : '';
+  }
+  function textoBadge(){
+    var id = versionActivaId();
+    if (id === VERSION_OFICIAL) return 'Viendo: Oficial';
+    var reg = registroVersion(id);
+    var empleado = (reg && reg.empleado) || 'Empleado';
+    var fecha = fechaDeRegistro(reg, id);
+    return 'Viendo: Versión · ' + empleado + (fecha ? ' · ' + fecha : '');
+  }
+  function rutaActiva(){
+    var id = versionActivaId();
+    if (id === VERSION_OFICIAL) return 'Oficial/Planillas';
+    return 'Versiones/' + id + '/Planillas';
+  }
+  function sanitizarEmpleado(s){
+    var t = sanitizarNombreArchivo(s).replace(/\s+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+    return t.slice(0, 60) || 'Empleado';
+  }
+  function stampVersion(d){
+    d = d || new Date();
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + '-' + pad2(d.getHours()) + pad2(d.getMinutes());
+  }
+  function idVersionUnico(empleado, stamp){
+    var base = sanitizarEmpleado(empleado) + '_' + stamp;
+    var id = base, n = 2, usados = {};
+    catalogoVersiones().forEach(function(v){ if (v && v.id) usados[v.id] = 1; });
+    while (usados[id]) { id = base + '-' + n; n++; }
+    return id;
+  }
+  function guardarMarcasVersion(){
+    if (!LS) return;
+    var vid = versionActivaId();
+    var syncAll = lsGet(LS.syncVer, {}) || {};
+    syncAll[vid] = {
+      sync: lastCloudSync || 0,
+      remote: lastRemoteModified || '',
+      hojas: lsGet(LS.hojas, null),
+      change: lastLocalChange || 0
+    };
+    lsSet(LS.syncVer, syncAll);
+    if (vid === VERSION_OFICIAL) {
+      lsSet(LS.sync, lastCloudSync || 0);
+      lsSet(LS.remote, lastRemoteModified || '');
+      lsSet(LS.change, lastLocalChange || 0);
+    }
+    var fotosAll = lsGet(LS.fotosVer, {}) || {};
+    fotosAll[vid] = { fotos: fotoMap || {}, nombres: fotoNombres || {}, carpetas: fotoCarpetas || {} };
+    lsSet(LS.fotosVer, fotosAll);
+    lsSet(LS.fotos, fotoMap || {});
+    lsSet(LS.fotoNombres, fotoNombres || {});
+    lsSet(LS.fotoCarpetas, fotoCarpetas || {});
+  }
+  function cargarSyncDeVersion(vid){
+    vid = vid || versionActivaId();
+    var syncAll = lsGet(LS.syncVer, {}) || {};
+    if (!syncAll[vid] && vid === VERSION_OFICIAL) {
+      syncAll[vid] = {
+        sync: Number(lsGet(LS.sync, 0)) || 0,
+        remote: lsGet(LS.remote, '') || '',
+        hojas: lsGet(LS.hojas, null),
+        change: Number(lsGet(LS.change, 0)) || 0
+      };
+      lsSet(LS.syncVer, syncAll);
+    }
+    var rec = syncAll[vid] || { sync:0, remote:'', hojas:null, change:0 };
+    lastCloudSync = Number(rec.sync) || 0;
+    lastRemoteModified = rec.remote || '';
+    if (Object.prototype.hasOwnProperty.call(rec, 'change')) lastLocalChange = Number(rec.change) || 0;
+    lsSet(LS.hojas, rec.hojas || null);
+    var fotosAll = lsGet(LS.fotosVer, {}) || {};
+    if (!fotosAll[vid] && vid === VERSION_OFICIAL) {
+      fotosAll[vid] = {
+        fotos: lsGet(LS.fotos, {}) || {},
+        nombres: lsGet(LS.fotoNombres, {}) || {},
+        carpetas: lsGet(LS.fotoCarpetas, {}) || {}
+      };
+      lsSet(LS.fotosVer, fotosAll);
+    }
+    var pack = fotosAll[vid] || { fotos:{}, nombres:{}, carpetas:{} };
+    fotoMap = pack.fotos || {};
+    fotoNombres = pack.nombres || {};
+    fotoCarpetas = pack.carpetas || {};
+  }
+  function anotacionObrasVersion(){
+    var id = versionActivaId();
+    if (id === VERSION_OFICIAL) return;
+    var list = catalogoVersiones();
+    var reg = null;
+    for (var i = 0; i < list.length; i++) if (list[i] && list[i].id === id) reg = list[i];
+    if (!reg) return;
+    reg.obras = Array.isArray(reg.obras) ? reg.obras.slice() : [];
+    if (reg.obraSlug && reg.obras.indexOf(reg.obraSlug) < 0) reg.obras.push(reg.obraSlug);
+    (state.tabs || []).forEach(function(t){
+      var s = slugNombre(obraDe(t));
+      if (reg.obras.indexOf(s) < 0) reg.obras.push(s);
+    });
+    guardarCatalogo(list);
+  }
+  function persistirSnapshotVersion(){
+    if (pausaSnapshot || forzarBajada || !LS || !state || !Array.isArray(state.tabs)) return;
+    var id = versionActivaId();
+    var all = lsGet(LS.cacheVer, {}) || {};
+    all[id] = {
+      meta: state.meta,
+      tabs: state.tabs,
+      activa: state.activa,
+      savedAt: Date.now(),
+      dirty: (Number(lastLocalChange) || 0) > (Number(lastCloudSync) || 0)
+    };
+    lsSet(LS.cacheVer, all);
+    var obras = lsGet(LS.obraVer, {}) || {};
+    var porObra = {};
+    state.tabs.forEach(function(t){
+      var slug = slugNombre(obraDe(t));
+      if (!porObra[slug]) porObra[slug] = [];
+      porObra[slug].push(t);
+    });
+    Object.keys(porObra).forEach(function(slug){
+      obras[id + '|' + slug] = {
+        meta: Object.assign({}, state.meta, { obra: obraDe(porObra[slug][0]) }),
+        tabs: porObra[slug],
+        activa: state.activa,
+        savedAt: Date.now()
+      };
+    });
+    lsSet(LS.obraVer, obras);
+    anotacionObrasVersion();
+  }
+  function adoptarDocumento(doc){
+    seleccionadas.clear();
+    var meta = Object.assign({}, (doc && doc.meta) || state.meta || {});
+    var tabs = (doc && doc.tabs) || [];
+    if (!tabs.length) tabs = [{ id:1, nombre:'General', obra: meta.obra || 'Sin obra', rows:[], nextId:1, oculta:false }];
+    state.meta = meta;
+    state.tabs = tabs;
+    state.tabs.forEach(function(t){
+      if (t.oculta !== true) t.oculta = false;
+      if (t.obra == null || String(t.obra).trim() === '') t.obra = String(meta.obra || '').trim() || 'Sin obra';
+      if (!Array.isArray(t.rows)) t.rows = [];
+      t.rows.forEach(function(r){ if (!Array.isArray(r.fotos)) r.fotos = []; });
+    });
+    state.activa = doc && doc.activa;
+    var vis = null;
+    for (var i = 0; i < state.tabs.length; i++) if (!state.tabs[i].oculta) { vis = state.tabs[i]; break; }
+    if (tabActiva().oculta && vis) state.activa = vis.id;
+    var t = tabActiva();
+    state.activa = t.id; state.rows = t.rows; state.nextId = t.nextId || 1;
+    completarUbicacion(t);
+    actualizarFechaDocumento();
+    try { localStorage.setItem(KEY, JSON.stringify({ meta:state.meta, tabs:state.tabs, activa:state.activa })); } catch(e){}
+    document.querySelectorAll('[data-meta]').forEach(function(i){
+      var key = i.getAttribute('data-meta');
+      i.value = key === 'obra' ? obraActiva() : (state.meta[key] || '');
+    });
+    actualizarListas(); renderTabs(); renderObras(); render();
+    pintarVersion();
+  }
+  function aplicarSnapshot(id){
+    var all = lsGet(LS.cacheVer, {}) || {};
+    var doc = all[id];
+    if (doc && Array.isArray(doc.tabs) && doc.tabs.length && !doc.placeholder) {
+      adoptarDocumento(doc);
+      return true;
+    }
+    var obras = lsGet(LS.obraVer, {}) || {};
+    var tabs = [], meta = null, activa = null;
+    Object.keys(obras).forEach(function(k){
+      if (k.indexOf(id + '|') !== 0) return;
+      var slice = obras[k];
+      if (!slice) return;
+      if (slice.meta) meta = slice.meta;
+      (slice.tabs || []).forEach(function(t){ tabs.push(JSON.parse(JSON.stringify(t))); });
+      if (slice.activa) activa = slice.activa;
+    });
+    if (!tabs.length) return false;
+    adoptarDocumento({ meta: meta || state.meta, tabs: tabs, activa: activa || tabs[0].id });
+    return true;
+  }
+  function cuandoSyncQuieto(){
+    if (syncing && syncActual) return syncActual.then(function(){}, function(){});
+    return Promise.resolve();
+  }
+  function activarVersion(id){
+    id = (!id || id === 'Oficial') ? VERSION_OFICIAL : String(id);
+    return cuandoSyncQuieto().then(function(){
+      if (id === versionActivaId()) { pintarVersion(); return id; }
+      clearTimeout(syncTimer);
+      var previa = versionActivaId();
+      pausaSync = true;
+      var ok = false;
+      try {
+        persistirSnapshotVersion();
+        guardarMarcasVersion();
+        lsSet(LS.version, id);
+        cargarSyncDeVersion(id);
+        ok = aplicarSnapshot(id);
+        if (!ok) {
+          forzarBajada = true;
+          adoptarDocumento({
+            meta: Object.assign({}, state.meta),
+            tabs: [{ id:1, nombre:'General', obra: (state.meta && state.meta.obra) || 'Sin obra', rows:[], nextId:1, oculta:false }],
+            activa: 1
+          });
+          var cache = lsGet(LS.cacheVer, {}) || {};
+          delete cache[id];
+          lsSet(LS.cacheVer, cache);
+          estadoNube('No hay copia local de esta versión. Conectá Drive para bajarla.');
+        } else {
+          forzarBajada = false;
+          persistirSnapshotVersion();
+        }
+        pintarVersion();
+      } catch (e) {
+        try { lsSet(LS.version, previa); cargarSyncDeVersion(previa); aplicarSnapshot(previa); } catch (e2) {}
+        pintarVersion();
+        pausaSync = false;
+        throw e;
+      }
+      pausaSync = false;
+      if (tokenValido() && navigator.onLine && GOOGLE_CLIENT_ID) return sincronizarAhora(false).then(function(){ return id; });
+      return id;
+    });
+  }
+  function pintarVersion(){
+    var badge = document.getElementById('version-badge');
+    var sel = document.getElementById('version-selector');
+    var btn = document.getElementById('version-oficial');
+    var id = versionActivaId();
+    if (badge) badge.textContent = textoBadge();
+    if (btn) btn.hidden = id === VERSION_OFICIAL;
+    if (!sel) return;
+    var obraSlug = slugNombre(obraActiva());
+    var vistos = {};
+    pintandoVersion = true;
+    sel.innerHTML = '';
+    function add(value, label){
+      if (vistos[value]) return;
+      vistos[value] = 1;
+      var o = document.createElement('option');
+      o.value = value;
+      o.textContent = label;
+      sel.appendChild(o);
+    }
+    add(VERSION_OFICIAL, 'Oficial');
+    catalogoVersiones().forEach(function(v){
+      if (!v || !v.id) return;
+      var obras = Array.isArray(v.obras) && v.obras.length ? v.obras : (v.obraSlug ? [v.obraSlug] : []);
+      if (obras.length && obras.indexOf(obraSlug) < 0 && v.id !== id) return;
+      var fecha = fechaDeRegistro(v, v.id);
+      add(v.id, 'Versión · ' + (v.empleado || 'Empleado') + (fecha ? ' · ' + fecha : ''));
+    });
+    if (!vistos[id]) add(id, textoBadge().replace(/^Viendo:\s*/, ''));
+    sel.value = id;
+    pintandoVersion = false;
+  }
+  function puedeEscribirEnPlanillas(versionId, parentIds, oficialId, rootId){
+    var parents = parentIds || [];
+    var enOficial = !!(oficialId && parents.indexOf(oficialId) >= 0);
+    var enRaiz = !!(rootId && parents.indexOf(rootId) >= 0);
+    if (!oficialId || !parents.length) return { ok:false, motivo:'sin-carpeta' };
+    if (!versionId || versionId === VERSION_OFICIAL) {
+      if (!enOficial || enRaiz) return { ok:false, motivo:'oficial-fuera-de-lugar' };
+      return { ok:true, destino:'Oficial/Planillas' };
+    }
+    if (enOficial || enRaiz) return { ok:false, motivo:'version-pisaria-oficial' };
+    return { ok:true, destino:'Versiones/' + versionId + '/Planillas' };
+  }
+  function puedeEscribirVersion(versionId, planillasParents, versionParents, versionName, oficialId, rootId, versionesId){
+    var base = puedeEscribirEnPlanillas(versionId, planillasParents, oficialId, rootId);
+    if (!base.ok) return base;
+    if (!versionId || versionId === VERSION_OFICIAL) return base;
+    var abuelos = versionParents || [];
+    if ((oficialId && abuelos.indexOf(oficialId) >= 0) || (rootId && abuelos.indexOf(rootId) >= 0)) {
+      return { ok:false, motivo:'version-pisaria-oficial' };
+    }
+    if (versionesId && abuelos.indexOf(versionesId) < 0) return { ok:false, motivo:'fuera-de-versiones' };
+    if (versionName && versionName !== versionId) return { ok:false, motivo:'nombre-distinto' };
+    return base;
+  }
+  function escrituraSegura(){
+    var vid = versionActivaId();
+    if (!driveIds.planillas || !driveIds.oficial || !driveIds.folder) {
+      return Promise.reject(new Error('No está lista la carpeta de la versión activa. No se escribió nada.'));
+    }
+    if (driveIds.planillasVersion && driveIds.planillasVersion !== vid) {
+      return Promise.reject(new Error('La carpeta de Drive no coincide con la versión en pantalla. No se escribió nada.'));
+    }
+    return infoArchivo(driveIds.planillas).then(function(planillas){
+      var padres = (planillas && planillas.parents) || [];
+      if (vid === VERSION_OFICIAL) {
+        var oficial = puedeEscribirVersion(vid, padres, [], '', driveIds.oficial, driveIds.folder, driveIds.versiones);
+        if (!oficial.ok) throw new Error('La versión oficial solo se guarda en Oficial/Planillas.');
+        return;
+      }
+      var padre = padres[0];
+      return infoArchivo(padre).then(function(carpetaVersion){
+        var decision = puedeEscribirVersion(
+          vid, padres, carpetaVersion && carpetaVersion.parents, carpetaVersion && carpetaVersion.name,
+          driveIds.oficial, driveIds.folder, driveIds.versiones
+        );
+        if (!decision.ok) {
+          throw new Error(decision.motivo === 'version-pisaria-oficial'
+            ? 'Estás viendo una versión importada: la sincronización no puede escribir en Oficial.'
+            : 'La sincronización se detuvo para no guardar fuera de ' + rutaActiva() + '.');
+        }
+      });
+    });
+  }
+  function asegurarJSZip(){
+    return new Promise(function(res, rej){
+      var n = 0;
+      (function esperar(){
+        if (window.JSZip) return res(window.JSZip);
+        if (++n > 50) return rej(new Error('No se pudo cargar el compresor ZIP. Revisá la conexión.'));
+        setTimeout(esperar, 100);
+      })();
+    });
+  }
+  function cargarFotoLocal(id){
+    if (photoCache[id] && photoCache[id].data) return Promise.resolve(photoCache[id]);
+    return dbOp('readonly', function(s){ return s.get(id); }).then(function(rec){
+      if (rec) photoCache[id] = rec;
+      return rec || null;
+    }).catch(function(){ return null; });
+  }
+  function excelDeObra(obra){
+    var previo = hojasEscritas;
+    if (!window.ExcelJS) return Promise.resolve(null);
+    return construirExcel(obra).then(function(blob){
+      hojasEscritas = previo;
+      return blob;
+    }, function(){
+      hojasEscritas = previo;
+      return null;
+    });
+  }
+  function exportarInformacion(){
+    return asegurarJSZip().then(function(){
+      sincronizar();
+      var obra = obraActiva();
+      var tabs = (state.tabs || []).filter(function(t){ return norm(obraDe(t)) === norm(obra); }).map(function(t){
+        return JSON.parse(JSON.stringify(t));
+      });
+      if (!tabs.length) throw new Error('No hay datos de la obra activa para exportar.');
+      var ids = [];
+      tabs.forEach(function(t){
+        (t.rows || []).forEach(function(r){
+          (r.fotos || []).forEach(function(fid){ if (ids.indexOf(fid) < 0) ids.push(fid); });
+        });
+      });
+      var meta = JSON.parse(JSON.stringify(state.meta || {}));
+      meta.obra = obra;
+      var vid = versionActivaId();
+      var reg = registroVersion(vid);
+      var activa = tabs.some(function(t){ return t.id === state.activa; }) ? state.activa : tabs[0].id;
+      return Promise.all(ids.map(cargarFotoLocal)).then(function(recs){
+        var zip = new JSZip();
+        var fotosMeta = [], faltantes = [];
+        recs.forEach(function(rec, i){
+          var fid = ids[i];
+          if (!rec || !rec.data) { faltantes.push(fid); return; }
+          zip.file('fotos/' + fid + '.jpg', dataUrlBlob(rec.data));
+          fotosMeta.push({
+            id: fid, file: 'fotos/' + fid + '.jpg', w: rec.w || 0, h: rec.h || 0,
+            takenAt: rec.takenAt || '', label: rec.label || ''
+          });
+        });
+        var doc = { schemaVersion: 1, meta: meta, tabs: tabs, activa: activa };
+        var manifest = {
+          schemaVersion: 1,
+          app: '3df-checklist',
+          exportedAt: new Date().toISOString(),
+          exportedBy: emailSesion(),
+          exportedByName: (cloudUser && cloudUser.nombre) || '',
+          versionId: vid,
+          versionLabel: vid === VERSION_OFICIAL ? 'Oficial' : textoBadge().replace(/^Viendo:\s*/, ''),
+          obra: { id: slugNombre(obra), nombre: obra },
+          empleado: (reg && reg.empleado) || '',
+          fotos: fotosMeta,
+          fotosFaltantes: faltantes
+        };
+        zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+        zip.file('checklist.json', JSON.stringify(doc, null, 2));
+        return excelDeObra(obra).then(function(blob){
+          if (blob) zip.file('checklist.xlsx', blob);
+          return zip.generateAsync({ type:'blob', compression:'DEFLATE' });
+        }).then(function(blob){
+          var nombre = '3dF_' + (slugNombre(obra) || 'obra') + '_' + (vid === VERSION_OFICIAL ? 'oficial' : vid) + '.zip';
+          return { blob:blob, nombre:nombre, manifest:manifest };
+        });
+      });
+    });
+  }
+  function validarManifest(manifest){
+    if (!manifest) return;
+    if (manifest.app && manifest.app !== '3df-checklist') throw new Error('Este ZIP no es una exportación de 3dF Checklist.');
+    if (Number(manifest.schemaVersion || 1) > 1) throw new Error('Esta exportación es de una versión más nueva de la app.');
+  }
+  function cargarFotosZip(zip, pack){
+    var lista = (pack.manifest && pack.manifest.fotos) || [];
+    var jobs = [];
+    if (lista.length) {
+      lista.forEach(function(f){
+        var path = f.file || ('fotos/' + f.id + '.jpg');
+        var entry = zip.file(path);
+        if (!entry) return;
+        jobs.push(entry.async('arraybuffer').then(function(buf){
+          return blobDataUrl(new Blob([buf], { type:'image/jpeg' })).then(function(data){
+            return { id:f.id, data:data, w:f.w, h:f.h, takenAt:f.takenAt || '', label:f.label || '' };
+          });
+        }));
+      });
+    } else {
+      zip.forEach(function(path, entry){
+        if (entry.dir) return;
+        var m = /^fotos\/([^/]+)\.jpe?g$/i.exec(path);
+        if (!m) return;
+        jobs.push(entry.async('arraybuffer').then(function(buf){
+          return blobDataUrl(new Blob([buf], { type:'image/jpeg' })).then(function(data){
+            return { id:m[1], data:data, w:0, h:0, takenAt:'', label:'' };
+          });
+        }));
+      });
+    }
+    return Promise.all(jobs).then(function(fotos){ pack.fotos = fotos; return pack; });
+  }
+  function leerPaquete(zip){
+    var manFile = zip.file('manifest.json');
+    var jsonFile = zip.file('checklist.json');
+    var xlsxFile = zip.file('checklist.xlsx');
+    if (!jsonFile && !xlsxFile) throw new Error('El archivo no tiene la checklist exportada.');
+    return Promise.resolve().then(function(){
+      if (!manFile) return null;
+      return manFile.async('string').then(function(t){ return JSON.parse(t); });
+    }).then(function(manifest){
+      validarManifest(manifest);
+      if (jsonFile) {
+        return jsonFile.async('string').then(function(t){
+          return { manifest: manifest || {}, doc: JSON.parse(t) };
+        });
+      }
+      return xlsxFile.async('arraybuffer').then(leerExcel).then(function(doc){
+        return { manifest: manifest || {}, doc: doc };
+      });
+    }).then(function(pack){ return cargarFotosZip(zip, pack); });
+  }
+  function guardarFotosImportadas(fotos){
+    var map = {};
+    return (fotos || []).reduce(function(p, f){
+      return p.then(function(){
+        if (!f || !f.data) return;
+        var nuevo = 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        map[f.id] = nuevo;
+        function poner(rec){
+          return dbOp('readwrite', function(s){ return s.put(rec); }).then(function(){ photoCache[nuevo] = rec; });
+        }
+        if (f.w && f.h) return poner({ id:nuevo, data:f.data, w:f.w, h:f.h, takenAt:f.takenAt || '', label:f.label || '' });
+        return dimensiones(f.data).then(function(d){
+          return poner({ id:nuevo, data:f.data, w:d.w, h:d.h, takenAt:f.takenAt || '', label:f.label || '' });
+        });
+      });
+    }, Promise.resolve()).then(function(){ return map; });
+  }
+  function normalizarDocImportado(doc, idMap){
+    var meta = Object.assign({}, (doc && doc.meta) || {});
+    var tabs = ((doc && doc.tabs) || []).map(function(t){
+      var next = Number(t.nextId) || 1;
+      var rows = (t.rows || []).map(function(r){
+        var rr = Object.assign({}, r);
+        delete rr.fotosDrive;
+        delete rr._hoja;
+        var fuentes = Array.isArray(r.fotos) ? r.fotos : [];
+        rr.fotos = fuentes.map(function(fid){ return idMap[fid] || null; }).filter(Boolean);
+        if (!rr.id) { rr.id = next++; }
+        return rr;
+      });
+      return {
+        id: t.id || 1,
+        nombre: (t.nombre || 'General').slice(0, 30),
+        obra: t.obra || meta.obra || 'Sin obra',
+        nextId: Math.max(next, rows.reduce(function(m, r){ return Math.max(m, Number(r.id) || 0); }, 0) + 1),
+        oculta: !!t.oculta,
+        importante: !!t.importante,
+        rows: rows
+      };
+    });
+    if (!tabs.length) tabs = [{ id:1, nombre:'General', obra: meta.obra || 'Sin obra', rows:[], nextId:1, oculta:false }];
+    var activa = tabs.some(function(t){ return t.id === doc.activa; }) ? doc.activa : tabs[0].id;
+    return { meta: meta, tabs: tabs, activa: activa };
+  }
+  function pedirNombreEmpleado(){
+    var perfil = cloudUser && String(cloudUser.nombre || '').trim();
+    if (perfil) return perfil;
+    var sugerido = '';
+    var email = emailSesion();
+    if (email && email.indexOf('@') > 0) sugerido = email.split('@')[0].replace(/[._]+/g, ' ');
+    var ingresado = window.prompt('Nombre del empleado para la carpeta de la versión:', sugerido);
+    if (ingresado == null) {
+      var err = new Error('Importación cancelada.');
+      err.cancelado = true;
+      throw err;
+    }
+    ingresado = String(ingresado).trim();
+    if (!ingresado) throw new Error('Hace falta el nombre del empleado para crear la carpeta de la versión.');
+    return ingresado;
+  }
+  function aplicarImportacion(paquete, empleado){
+    return guardarFotosImportadas(paquete.fotos || []).then(function(idMap){
+      var doc = normalizarDocImportado(paquete.doc, idMap);
+      if (!doc.meta.obra) {
+        doc.meta.obra = (paquete.manifest && paquete.manifest.obra && paquete.manifest.obra.nombre) || obraActiva();
+      }
+      return cuandoSyncQuieto().then(function(){
+        clearTimeout(syncTimer);
+        pausaSync = true;
+        var nuevoId = null;
+        try {
+          persistirSnapshotVersion();
+          guardarMarcasVersion();
+          var ahora = new Date();
+          var stamp = stampVersion(ahora);
+          nuevoId = idVersionUnico(empleado, stamp);
+          var obraNombre = doc.meta.obra || obraActiva();
+          var reg = {
+            id: nuevoId,
+            empleado: String(empleado).trim(),
+            stamp: stamp,
+            createdAt: ahora.toISOString(),
+            obra: obraNombre,
+            obraSlug: slugNombre(obraNombre),
+            obras: [slugNombre(obraNombre)],
+            exportedBy: (paquete.manifest && paquete.manifest.exportedBy) || '',
+            schemaVersion: 1
+          };
+          var cat = catalogoVersiones().filter(function(v){ return v && v.id !== nuevoId; });
+          cat.push(reg);
+          guardarCatalogo(cat);
+          lsSet(LS.version, nuevoId);
+          fotoMap = {};
+          fotoNombres = {};
+          fotoCarpetas = {};
+          lastLocalChange = Date.now();
+          lastCloudSync = 0;
+          lastRemoteModified = '';
+          forzarBajada = false;
+          lsSet(LS.hojas, null);
+          driveIds.planillas = null;
+          driveIds.planillasVersion = null;
+          driveIds.filesByObra = {};
+          driveIds.file = null;
+          driveIds.versionFolder = null;
+          lsSet(LS.ids, driveIds);
+          guardarMarcasVersion();
+          adoptarDocumento(doc);
+          persistirSnapshotVersion();
+          guardarMarcasVersion();
+        } finally {
+          pausaSync = false;
+        }
+        var msg = textoBadge() + '. Al sincronizar se guarda en ' + rutaActiva() + '/ y no se pisa Oficial.';
+        estadoNube(tokenValido() ? 'Importado · sincronizando…' : 'Importado en este dispositivo');
+        mensajeNube(msg);
+        if (tokenValido() && navigator.onLine && GOOGLE_CLIENT_ID) return sincronizarAhora(false).then(function(){ return nuevoId; });
+        return nuevoId;
+      });
+    });
+  }
+  function importarInformacion(file, opts){
+    opts = opts || {};
+    if (!file) return Promise.resolve();
+    return asegurarJSZip().then(function(){ return JSZip.loadAsync(file); }).then(leerPaquete).then(function(paquete){
+      if (opts.empleado && String(opts.empleado).trim()) return { paquete:paquete, empleado:String(opts.empleado).trim() };
+      var carga = (tokenValido() && !(cloudUser && String(cloudUser.nombre || '').trim())) ? cargarUsuario().catch(function(){}) : Promise.resolve();
+      return carga.then(pedirNombreEmpleado).then(function(empleado){ return { paquete:paquete, empleado:empleado }; });
+    }).then(function(ctx){ return aplicarImportacion(ctx.paquete, ctx.empleado); });
+  }
+  function correrExportacion(){
+    var btn = document.getElementById('exportar-info');
+    if (btn) { btn.disabled = true; btn.textContent = 'Exportando…'; }
+    return exportarInformacion().then(function(out){
+      return entregar(out.blob, out.nombre, 'application/zip').then(function(){
+        estadoNube('Exportación lista');
+      });
+    }).catch(function(e){
+      estadoNube('No se pudo exportar');
+      alert((e && e.message) || 'No se pudo exportar.');
+    }).then(function(){
+      if (btn) { btn.disabled = false; btn.textContent = 'Exportar información'; }
+    });
+  }
+  function correrImportacion(file){
+    var btn = document.getElementById('importar-info');
+    if (btn) { btn.disabled = true; btn.textContent = 'Importando…'; }
+    return importarInformacion(file).then(function(){
+      estadoNube(document.getElementById('estado-nube') ? document.getElementById('estado-nube').textContent : textoBadge());
+    }).catch(function(e){
+      if (e && e.cancelado) { estadoNube('Importación cancelada'); return; }
+      console.error('Importación 3dF:', e);
+      estadoNube('No se pudo importar');
+      alert((e && e.message) || 'No se pudo importar el archivo.');
+    }).then(function(){
+      if (btn) { btn.disabled = false; btn.textContent = 'Importar información'; }
+    });
+  }
+  var btnExportarInfo = document.getElementById('exportar-info');
+  var btnImportarInfo = document.getElementById('importar-info');
+  var inputImportar = document.getElementById('importar-archivo');
+  var btnVersionOficial = document.getElementById('version-oficial');
+  var selVersion = document.getElementById('version-selector');
+  if (btnExportarInfo) btnExportarInfo.addEventListener('click', correrExportacion);
+  if (btnImportarInfo && inputImportar) btnImportarInfo.addEventListener('click', function(){ inputImportar.click(); });
+  if (inputImportar) inputImportar.addEventListener('change', function(){
+    var file = inputImportar.files && inputImportar.files[0];
+    inputImportar.value = '';
+    if (file) correrImportacion(file);
+  });
+  if (btnVersionOficial) btnVersionOficial.addEventListener('click', function(){
+    activarVersion(VERSION_OFICIAL).catch(function(e){
+      estadoNube('No se pudo volver a Oficial');
+      alert((e && e.message) || 'No se pudo volver a la versión oficial.');
+    });
+  });
+  if (selVersion) selVersion.addEventListener('change', function(){
+    if (pintandoVersion) return;
+    var elegido = selVersion.value;
+    activarVersion(elegido).catch(function(e){
+      pintarVersion();
+      estadoNube('No se pudo cambiar de versión');
+      alert((e && e.message) || 'No se pudo cambiar de versión.');
+    });
+  });
+  pintarVersion();
 
   // --- Sincronización ---
   function sincronizarAhora(interactivo){
@@ -2682,17 +3490,23 @@ td.c-estado{padding-left:2px;padding-right:2px}
         });
       }
       function subir(){
+        var vid = versionActivaId();
+        var planillas = driveIds.planillas;
         var obras = obrasDistintas();
         if (!obras.length) obras = [obraActiva()];
-        return subirFotos().then(function(){
-          return obras.reduce(function(p, nombre){ return p.then(function(){ return subirObra(nombre); }); }, Promise.resolve());
-        }).then(function(last){
-          lsSet(LS.ids, driveIds);
-          lastRemoteModified = stampRemoto(remotoInfo);
-          // Refresh stamp from just-uploaded set on next listing; keep a marker that local won.
-          lastRemoteModified = 'local-upload:' + Date.now();
-          if (hojasEscritas) lsSet(LS.hojas, hojasEscritas);
-          return last;
+        return escrituraSegura().then(function(){
+          assertVersionEstable(vid, planillas);
+          return subirFotos().then(function(){
+            assertVersionEstable(vid, planillas);
+            return obras.reduce(function(p, nombre){ return p.then(function(){ assertVersionEstable(vid, planillas); return subirObra(nombre); }); }, Promise.resolve());
+          }).then(function(last){
+            assertVersionEstable(vid, planillas);
+            lsSet(LS.ids, driveIds);
+            // Marker until the fresh listing below replaces it. Uploads never leave the active version root.
+            lastRemoteModified = 'local-upload:' + Date.now();
+            if (hojasEscritas) lsSet(LS.hojas, hojasEscritas);
+            return last;
+          });
         });
       }
       function subirRespetandoBajas(){
@@ -2711,6 +3525,13 @@ td.c-estado{padding-left:2px;padding-right:2px}
       var hayRemoto = !!(remotoInfo.porObra.length || remotoInfo.legacy);
       var remotoCambio = hayRemoto && stamp !== lastRemoteModified;
       var localCambio = lastLocalChange > lastCloudSync;
+      if (forzarBajada) {
+        forzarBajada = false;
+        if (!localTieneDatos()) {
+          if (hayRemoto) return bajar();
+          return;
+        }
+      }
       if (!hayRemoto) return subir();
       // Primera vinculación: no pisar en silencio datos locales preexistentes.
       if (!lastCloudSync) {
@@ -2734,8 +3555,10 @@ td.c-estado{padding-left:2px;padding-right:2px}
     }).then(function(){
       if(dashboardInitialized) actualizarAvisos();
       lastCloudSync = inicio;
-      lsSet(LS.sync, lastCloudSync); lsSet(LS.remote, lastRemoteModified);
-      estadoNube('Google Drive · sincronizado ✓'); mensajeNube('Sincronización completada' + (cloudUser ? ' (' + cloudUser.email + ').' : '.'));
+      guardarMarcasVersion();
+      persistirSnapshotVersion();
+      estadoNube('Google Drive · ' + (versionActivaId() === VERSION_OFICIAL ? 'Oficial' : 'Versión') + ' · sincronizado ✓');
+      mensajeNube('Sincronización completada en ' + rutaActiva() + '/' + (cloudUser ? ' (' + cloudUser.email + ').' : '.'));
       mostrarCuenta();
       linkCarpeta();
     }).catch(function(err){
@@ -2752,9 +3575,11 @@ td.c-estado{padding-left:2px;padding-right:2px}
   }
   function programarSync(reintento){
     if (!LS) return; // todavía inicializando
+    if (pausaSync) return;
     if (!reintento) {
       lastLocalChange = Date.now();
       lsSet(LS.change, lastLocalChange);
+      if (typeof guardarMarcasVersion === 'function') guardarMarcasVersion();
     }
     if (!GOOGLE_CLIENT_ID || !lsGet(LS.linked, false)) { estadoNube('Solo en este dispositivo'); return; }
     if (!navigator.onLine) { estadoNube('Sin conexión · pendiente'); return; }
@@ -2935,6 +3760,20 @@ td.c-estado{padding-left:2px;padding-right:2px}
         nombreFotoDrive: nombreFotoDrive,
         nombreHoja: nombreHoja,
         sanitizarNombreArchivo: sanitizarNombreArchivo,
+        guardar: guardar,
+        render: function(){ renderTabs(); renderObras(); render(); pintarVersion(); },
+        exportarInformacion: exportarInformacion,
+        importarInformacion: importarInformacion,
+        activarVersion: activarVersion,
+        versionActivaId: versionActivaId,
+        rutaActiva: rutaActiva,
+        textoBadge: textoBadge,
+        catalogoVersiones: catalogoVersiones,
+        puedeEscribirEnPlanillas: puedeEscribirEnPlanillas,
+        puedeEscribirVersion: puedeEscribirVersion,
+        decidirMigracionPlanillas: decidirMigracionPlanillas,
+        sanitizarEmpleado: sanitizarEmpleado,
+        idVersionUnico: idVersionUnico,
         entregar: entregar,
         esMovilCompartir: esMovilCompartir,
         armarExcelVisible: armarExcelVisible,
