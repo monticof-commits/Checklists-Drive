@@ -86,15 +86,26 @@ header :focus-visible{outline-color:var(--blanco)}
   margin:0;font-size:12px;font-weight:700;letter-spacing:.01em;
   border:1px solid var(--blanco);padding:4px 8px;line-height:1.3;
 }
-.version-bar select{
-  background:#000;color:var(--blanco);border:2px solid var(--blanco);
-  min-height:32px;padding:4px 8px;font-size:12px;max-width:100%;
-}
-.version-bar select option{background:#fff;color:#000}
 .version-bar .btn{
   padding:6px 10px;min-height:32px;font-size:12px;
   background:transparent;color:var(--blanco);border:2px solid var(--blanco);
 }
+.version-lista{
+  list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;
+  flex:1 1 220px;min-width:min(100%,220px);max-height:168px;overflow:auto;
+}
+.version-item{display:flex;gap:4px;align-items:stretch;min-width:0}
+.version-elegir{
+  flex:1;min-width:0;text-align:left;background:transparent;color:var(--blanco);
+  border:1px solid var(--blanco);min-height:32px;padding:4px 8px;font:inherit;
+  font-size:12px;font-weight:700;cursor:pointer;
+}
+.version-item.actual .version-elegir{background:var(--blanco);color:var(--negro)}
+.version-borrar{
+  flex:0 0 36px;width:36px;min-height:32px;padding:0;background:transparent;color:var(--blanco);
+  border:1px solid var(--blanco);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
+}
+.version-borrar svg{width:16px;height:16px;display:block}
 .version-badge{overflow-wrap:anywhere}
 #version-oficial[hidden],#importar-archivo[hidden]{display:none}
 .ficha{
@@ -402,7 +413,7 @@ td.c-estado{padding-left:2px;padding-right:2px}
   .ficha input{font-size:16px;height:40px}
   .header-sync{max-width:none;width:100%;flex:1 1 100%;grid-template-rows:repeat(3,44px) auto}
   .header-sync .btn,.header-sync #cuenta-nube{height:44px;min-height:44px;max-height:44px}
-  .version-bar .btn,.version-bar select{min-height:44px}
+  .version-bar .btn,.version-elegir,.version-borrar{min-height:44px}
   .nube-panel{padding:22px 18px}
   .nube-acciones .btn{flex-basis:100%}
   .obras{padding:12px}
@@ -428,7 +439,7 @@ td.c-estado{padding-left:2px;padding-right:2px}
     <div class="obra"><label for="obra">Obra:</label><input id="obra" data-meta="obra" autocomplete="off"><button class="btn" id="agregar-obra" type="button">+ Nueva obra</button></div>
     <div class="version-bar">
       <p id="version-badge" class="version-badge" aria-live="polite">Viendo: Oficial</p>
-      <select id="version-selector" aria-label="Elegir versión"></select>
+      <ul id="version-lista" class="version-lista" aria-label="Versiones"></ul>
       <button class="btn" id="version-oficial" type="button" hidden>Versión oficial</button>
     </div>
   </div>
@@ -1833,6 +1844,8 @@ td.c-estado{padding-left:2px;padding-right:2px}
 
   var accessToken = null, tokenExp = 0, cloudUser = null, syncTimer = null, syncing = false, syncActual = null, hojasEscritas = null;
   var pausaSync = false, pausaSnapshot = false, forzarBajada = false, pintandoVersion = false;
+  var versionesProhibidas = {};
+  var suprimirReintentoSync = false;
   var lastLocalChange = Number(lsGet(LS.change, 0)) || 0;
   var lastCloudSync = Number(lsGet(LS.sync, 0)) || 0;
   var lastRemoteModified = lsGet(LS.remote, '') || '';
@@ -2028,12 +2041,64 @@ td.c-estado{padding-left:2px;padding-right:2px}
       });
     });
   }
-  function carpetaDeVersion(label){
+  function errorVersionQuitada(){
+    var e = new Error('Esa versión ya no está en Drive. No se volvió a crear la carpeta.');
+    e.versionQuitada = true;
+    return e;
+  }
+  function versionYaEstuvoEnNube(v){
+    if (!v) return false;
+    if (v.enNube || v.driveFolderId) return true;
+    var syncAll = lsGet(LS.syncVer, {}) || {};
+    var rec = syncAll[v.id];
+    return !!(rec && (Number(rec.sync) > 0 || (rec.remote && String(rec.remote).length)));
+  }
+  function marcarEnNube(id, folderId){
+    if (!id || !folderId) return;
+    var list = catalogoVersiones();
+    var cambio = false;
+    list.forEach(function(v){
+      if (!v || v.id !== id) return;
+      if (v.driveFolderId !== folderId || v.enNube !== true) { v.driveFolderId = folderId; v.enNube = true; cambio = true; }
+    });
+    if (cambio) guardarCatalogo(list);
     if (!driveIds.versionFolders || typeof driveIds.versionFolders !== 'object') driveIds.versionFolders = {};
-    return carpetaHija(driveIds.versionFolders[label] || null, label, driveIds.versiones).then(function(id){
-      driveIds.versionFolders[label] = id;
+    driveIds.versionFolders[id] = folderId;
+    lsSet(LS.ids, driveIds);
+  }
+  function carpetaDeVersion(label){
+    // No usa carpetaHija: esa crea la carpeta si no la encuentra y recrearía una versión borrada en Drive.
+    if (!label || label === VERSION_OFICIAL || versionesProhibidas[label]) return Promise.reject(errorVersionQuitada());
+    var reg = registroVersion(label);
+    if (!reg) return Promise.reject(errorVersionQuitada());
+    if (!driveIds.versionFolders || typeof driveIds.versionFolders !== 'object') driveIds.versionFolders = {};
+    var guardado = reg.driveFolderId || driveIds.versionFolders[label] || null;
+    function usar(id){
+      if (versionesProhibidas[label] || !registroVersion(label)) return Promise.reject(errorVersionQuitada());
+      marcarEnNube(label, id);
       driveIds.versionFolder = id;
       return id;
+    }
+    function crearSiEsPrimeraVez(){
+      var actual = registroVersion(label) || reg;
+      if (versionesProhibidas[label] || versionYaEstuvoEnNube(actual)) return Promise.reject(errorVersionQuitada());
+      return crearCarpeta(label, driveIds.versiones).then(usar);
+    }
+    if (guardado) {
+      return infoArchivoEstado(guardado).then(function(est){
+        if (est.file && !est.trashed && !est.missing) {
+          var padres = est.file.parents || [];
+          if (driveIds.versiones && padres.indexOf(driveIds.versiones) < 0) return Promise.reject(new Error('La carpeta de la versión no está dentro de Versiones. No se escribió nada.'));
+          if (est.file.name && est.file.name !== label) return Promise.reject(new Error('La carpeta de Drive no coincide con la versión. No se escribió nada.'));
+          return usar(est.file.id);
+        }
+        if (est.missing || est.trashed) return Promise.reject(errorVersionQuitada());
+        return Promise.reject(new Error('No se pudo comprobar la carpeta de la versión.'));
+      });
+    }
+    return buscarCarpeta(label, driveIds.versiones).then(function(existente){
+      if (existente) return usar(existente.id);
+      return crearSiEsPrimeraVez();
     });
   }
   function apuntarPlanillasActiva(oficialPlanillasId){
@@ -2078,7 +2143,9 @@ td.c-estado{padding-left:2px;padding-right:2px}
       driveIds.versiones = id;
       return migrarPlanillasLegado();
     }).then(function(oficialPlanillasId){
-      return apuntarPlanillasActiva(oficialPlanillasId);
+      driveIds.oficialPlanillas = oficialPlanillasId;
+      lsSet(LS.ids, driveIds);
+      return oficialPlanillasId;
     });
   }
   function listarHijos(padre, mime){
@@ -2086,6 +2153,32 @@ td.c-estado{padding-left:2px;padding-right:2px}
     if (mime) q += " and mimeType='" + mime + "'";
     return api(DRIVE + '?spaces=drive&pageSize=100&q=' + encodeURIComponent(q) + '&fields=' + encodeURIComponent('files(id,name,modifiedTime,mimeType)'))
       .then(json).then(function(j){ return j.files || []; });
+  }
+  function listarCarpetasCompletas(padre){
+    var todos = [];
+    var q = "'" + padre + "' in parents and trashed=false and mimeType='" + FOLDER_MIME + "'";
+    function pagina(token){
+      var url = DRIVE + '?spaces=drive&pageSize=100&q=' + encodeURIComponent(q) + '&fields=' + encodeURIComponent('nextPageToken,files(id,name,mimeType,trashed)');
+      if (token) url += '&pageToken=' + encodeURIComponent(token);
+      return api(url).then(json).then(function(j){
+        (j.files || []).forEach(function(f){ if (f && !f.trashed) todos.push(f); });
+        if (j.nextPageToken) return pagina(j.nextPageToken);
+        return todos;
+      });
+    }
+    return pagina(null);
+  }
+  function infoArchivoEstado(id){
+    // 404 o trashed = no está. Cualquier otro error se propaga: no es un borrado.
+    if (!id) return Promise.resolve({ ok:true, missing:true });
+    return api(DRIVE + '/' + encodeURIComponent(id) + '?fields=' + encodeURIComponent('id,name,parents,trashed')).then(json).then(function(j){
+      if (j.trashed) return { ok:true, trashed:true, file:j };
+      return { ok:true, file:j };
+    }).catch(function(e){
+      if (e && e.auth) throw e;
+      if (e && e.status === 404) return { ok:true, missing:true };
+      throw e;
+    });
   }
   function moverAPadre(id, nuevoPadre){
     return api(DRIVE + '/' + encodeURIComponent(id) + '?fields=parents').then(json).then(function(info){
@@ -2996,37 +3089,243 @@ td.c-estado{padding-left:2px;padding-right:2px}
       return id;
     });
   }
+  function textoVersion(v){
+    if (!v) return 'Versión';
+    var fecha = fechaDeRegistro(v, v.id);
+    return (v.empleado || 'Empleado') + (fecha ? ' · ' + fecha : '');
+  }
+  function quitarVersionLocal(id){
+    if (!id || id === VERSION_OFICIAL) return;
+    versionesProhibidas[id] = true;
+    guardarCatalogo(catalogoVersiones().filter(function(v){ return v && v.id !== id; }));
+    var cache = lsGet(LS.cacheVer, {}) || {};
+    delete cache[id];
+    lsSet(LS.cacheVer, cache);
+    var obras = lsGet(LS.obraVer, {}) || {};
+    Object.keys(obras).forEach(function(k){ if (k.indexOf(id + '|') === 0) delete obras[k]; });
+    lsSet(LS.obraVer, obras);
+    var syncAll = lsGet(LS.syncVer, {}) || {};
+    delete syncAll[id];
+    lsSet(LS.syncVer, syncAll);
+    var fotosAll = lsGet(LS.fotosVer, {}) || {};
+    delete fotosAll[id];
+    lsSet(LS.fotosVer, fotosAll);
+    if (driveIds.versionFolders) delete driveIds.versionFolders[id];
+    if (driveIds.planillasVersion === id) {
+      driveIds.versionFolder = null;
+      driveIds.planillas = null;
+      driveIds.planillasVersion = null;
+      driveIds.filesByObra = {};
+    }
+    lsSet(LS.ids, driveIds);
+  }
+  function adoptarOficialPorVersionEliminada(){
+    if (versionActivaId() === VERSION_OFICIAL) { pintarVersion(); return false; }
+    pausaSnapshot = true;
+    try {
+      lsSet(LS.version, VERSION_OFICIAL);
+      cargarSyncDeVersion(VERSION_OFICIAL);
+      var ok = aplicarSnapshot(VERSION_OFICIAL);
+      if (!ok) {
+        forzarBajada = true;
+        adoptarDocumento({
+          meta: { obra: 'Sin obra', codigo: (state.meta && state.meta.codigo) || '', version: (state.meta && state.meta.version) || '1', fecha: '' },
+          tabs: [{ id:1, nombre:'General', obra:'Sin obra', rows:[], nextId:1, oculta:false }],
+          activa: 1
+        });
+      } else forzarBajada = false;
+    } finally {
+      pausaSnapshot = false;
+    }
+    pintarVersion();
+    return true;
+  }
+  function reconciliarVersionesDrive(){
+    if (!driveIds.versiones || !tokenValido()) return Promise.resolve({ quitadas: [] });
+    return listarCarpetasCompletas(driveIds.versiones).then(function(carpetas){
+      var porId = {}, porNombre = {};
+      (carpetas || []).forEach(function(f){
+        if (!f || !f.id) return;
+        porId[f.id] = f;
+        if (f.name) porNombre[f.name] = f;
+      });
+      var nube = catalogoVersiones().filter(versionYaEstuvoEnNube);
+      return nube.reduce(function(p, v){
+        return p.then(function(acc){
+          var conocida = (v.driveFolderId && porId[v.driveFolderId]) || porNombre[v.id] || null;
+          if (conocida) { marcarEnNube(v.id, conocida.id); return acc; }
+          if (!v.driveFolderId) { acc.push(v.id); return acc; }
+          return infoArchivoEstado(v.driveFolderId).then(function(est){
+            if (est.file && !est.trashed && !est.missing) return acc;
+            if (est.missing || est.trashed) acc.push(v.id);
+            return acc;
+          });
+        });
+      }, Promise.resolve([]));
+    }).then(function(quitadas){
+      if (!quitadas.length) return { quitadas: quitadas };
+      var eraActiva = quitadas.indexOf(versionActivaId()) >= 0;
+      quitadas.forEach(quitarVersionLocal);
+      if (eraActiva) adoptarOficialPorVersionEliminada();
+      else pintarVersion();
+      estadoNube(quitadas.length === 1 ? 'Una versión ya no está en Drive y se quitó de la app.' : 'Hay versiones que ya no están en Drive y se quitaron de la app.');
+      return { quitadas: quitadas };
+    });
+  }
+  function validarCarpetaVersion(reg){
+    function revisar(file){
+      if (!file || file.trashed) return null;
+      var prohibidos = [driveIds.folder, driveIds.oficial, driveIds.versiones, driveIds.oficialPlanillas];
+      if (prohibidos.indexOf(file.id) >= 0) throw new Error('Esa carpeta no es una versión importada. No se borró nada.');
+      var padres = file.parents || [];
+      if (!driveIds.versiones || padres.indexOf(driveIds.versiones) < 0) throw new Error('La carpeta no está dentro de Versiones. No se borró nada.');
+      if (file.name !== reg.id) throw new Error('El nombre de la carpeta no coincide con la versión. No se borró nada.');
+      return file.id;
+    }
+    var idCarpeta = reg.driveFolderId || (driveIds.versionFolders && driveIds.versionFolders[reg.id]) || null;
+    if (idCarpeta) {
+      return infoArchivoEstado(idCarpeta).then(function(est){
+        if (est.missing || est.trashed) return null;
+        return revisar(est.file);
+      });
+    }
+    return buscarCarpeta(reg.id, driveIds.versiones).then(function(found){
+      if (!found) return null;
+      return infoArchivoEstado(found.id).then(function(est){
+        if (est.missing || est.trashed || !est.file) return null;
+        return revisar(est.file);
+      });
+    });
+  }
+  function iconoTacho(btn){
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M4 7h16M9 7V5h6v2M7 7l1 13h8l1-13');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', 'currentColor');
+    path.setAttribute('stroke-width', '1.8');
+    svg.appendChild(path);
+    btn.appendChild(svg);
+  }
+  function eliminarVersion(id){
+    if (!id || id === VERSION_OFICIAL) return Promise.resolve({ ok:false, motivo:'oficial' });
+    var reg = registroVersion(id);
+    if (!reg) return Promise.resolve({ ok:false, motivo:'ausente' });
+    var enNube = versionYaEstuvoEnNube(reg);
+    if (enNube && (!navigator.onLine || !tokenValido())) {
+      estadoNube('Conectá Google Drive para eliminar la carpeta.');
+      mensajeNube('La versión ' + textoVersion(reg) + ' está en Drive. Sin sesión no se manda a la papelera y sigue en la app.');
+      return Promise.resolve({ ok:false, motivo:'sin-sesion' });
+    }
+    var pregunta = enNube
+      ? '¿Mandar a la papelera la versión ' + textoVersion(reg) + '? Se envía a la papelera de Google Drive la carpeta Versiones/' + reg.id + '/ completa, con la planilla y las fotos. Se puede recuperar desde la papelera de Drive. La versión oficial no se borra.'
+      : '¿Quitar de este dispositivo la versión ' + textoVersion(reg) + '? Todavía no está en Google Drive. No se borra la versión oficial ni otras versiones.';
+    if (!window.confirm(pregunta)) return Promise.resolve({ ok:false, motivo:'cancelado' });
+    versionesProhibidas[id] = true;
+    clearTimeout(syncTimer);
+    pausaSync = true;
+    var drenar = (syncing && syncActual) ? syncActual.then(function(){}, function(){}) : Promise.resolve();
+    return drenar.then(function(){
+      reg = registroVersion(id) || reg;
+      enNube = versionYaEstuvoEnNube(reg);
+      function quitarLocal(){
+        var eraLocal = versionActivaId() === id;
+        quitarVersionLocal(id);
+        if (eraLocal) adoptarOficialPorVersionEliminada();
+        estadoNube('Versión quitada de este dispositivo.');
+        return { ok:true, local:true };
+      }
+      if (!enNube && (!navigator.onLine || !tokenValido())) return quitarLocal();
+      if (!navigator.onLine || !tokenValido()) {
+        delete versionesProhibidas[id];
+        estadoNube('Conectá Google Drive para eliminar la carpeta.');
+        mensajeNube('La versión ' + textoVersion(reg) + ' está en Drive. Sin sesión no se manda a la papelera y sigue en la app.');
+        return { ok:false, motivo:'sin-sesion' };
+      }
+      return asegurarCarpetas().then(function(){ return validarCarpetaVersion(reg); }).then(function(folderId){
+        var era = versionActivaId() === id;
+        function sacar(){
+          quitarVersionLocal(id);
+          if (era) adoptarOficialPorVersionEliminada();
+        }
+        if (!folderId) {
+          sacar();
+          estadoNube(enNube ? 'Esa carpeta ya no estaba en Drive. La versión se quitó de la app.' : 'Versión quitada de este dispositivo.');
+          return { ok:true, local:!enNube, yaAusente:!!enNube };
+        }
+        return papeleraDrive(folderId).catch(function(e){
+          if (e && e.status === 404) return null;
+          throw e;
+        }).then(function(){
+          sacar();
+          estadoNube('Versión en la papelera de Drive.');
+          mensajeNube('La carpeta Versiones/' + reg.id + '/ fue a la papelera. La versión oficial no se modificó.');
+          return { ok:true, papelera:true };
+        });
+      });
+    }).catch(function(e){
+      delete versionesProhibidas[id];
+      estadoNube('No se pudo mandar a la papelera.');
+      mensajeNube('No se borró la versión ' + textoVersion(reg) + ': ' + ((e && e.message) || 'error de Drive') + '. Sigue en la app.');
+      return { ok:false, motivo:'error', message: e && e.message };
+    }).then(function(res){
+      pausaSync = false;
+      pintarVersion();
+      if (res && res.ok && tokenValido() && navigator.onLine && versionActivaId() === VERSION_OFICIAL && res.papelera) {
+        return sincronizarAhora(false).then(function(){ return res; }, function(){ return res; });
+      }
+      return res;
+    });
+  }
+  function filaVersion(lista, value, label, actual, conTacho){
+    var li = document.createElement('li');
+    li.className = 'version-item' + (actual ? ' actual' : '');
+    var elegir = document.createElement('button');
+    elegir.type = 'button';
+    elegir.className = 'version-elegir';
+    elegir.setAttribute('data-elegir-version', value);
+    elegir.setAttribute('aria-pressed', actual ? 'true' : 'false');
+    elegir.textContent = label;
+    li.appendChild(elegir);
+    if (conTacho) {
+      var borrar = document.createElement('button');
+      borrar.type = 'button';
+      borrar.className = 'version-borrar';
+      borrar.setAttribute('data-borrar-version', value);
+      borrar.setAttribute('aria-label', 'Mandar a la papelera la versión ' + label.replace(/^Versión · /, ''));
+      iconoTacho(borrar);
+      li.appendChild(borrar);
+    }
+    lista.appendChild(li);
+  }
   function pintarVersion(){
     var badge = document.getElementById('version-badge');
-    var sel = document.getElementById('version-selector');
+    var lista = document.getElementById('version-lista');
     var btn = document.getElementById('version-oficial');
     var id = versionActivaId();
     if (badge) badge.textContent = textoBadge();
     if (btn) btn.hidden = id === VERSION_OFICIAL;
-    if (!sel) return;
+    if (!lista) return;
     var obraSlug = slugNombre(obraActiva());
     var vistos = {};
-    pintandoVersion = true;
-    sel.innerHTML = '';
-    function add(value, label){
+    lista.textContent = '';
+    function add(value, label, tacho){
       if (vistos[value]) return;
       vistos[value] = 1;
-      var o = document.createElement('option');
-      o.value = value;
-      o.textContent = label;
-      sel.appendChild(o);
+      filaVersion(lista, value, label, value === id, tacho);
     }
-    add(VERSION_OFICIAL, 'Oficial');
+    add(VERSION_OFICIAL, 'Oficial', false);
     catalogoVersiones().forEach(function(v){
-      if (!v || !v.id) return;
+      if (!v || !v.id || v.id === VERSION_OFICIAL) return;
       var obras = Array.isArray(v.obras) && v.obras.length ? v.obras : (v.obraSlug ? [v.obraSlug] : []);
       if (obras.length && obras.indexOf(obraSlug) < 0 && v.id !== id) return;
       var fecha = fechaDeRegistro(v, v.id);
-      add(v.id, 'Versión · ' + (v.empleado || 'Empleado') + (fecha ? ' · ' + fecha : ''));
+      add(v.id, 'Versión · ' + (v.empleado || 'Empleado') + (fecha ? ' · ' + fecha : ''), true);
     });
-    if (!vistos[id]) add(id, textoBadge().replace(/^Viendo:\s*/, ''));
-    sel.value = id;
-    pintandoVersion = false;
+    if (!vistos[id] && id !== VERSION_OFICIAL) add(id, textoBadge().replace(/^Viendo:\s*/, ''), true);
   }
   function puedeEscribirEnPlanillas(versionId, parentIds, oficialId, rootId){
     var parents = parentIds || [];
@@ -3305,7 +3604,8 @@ td.c-estado{padding-left:2px;padding-right:2px}
             obraSlug: slugNombre(obraNombre),
             obras: [slugNombre(obraNombre)],
             exportedBy: (paquete.manifest && paquete.manifest.exportedBy) || '',
-            schemaVersion: 1
+            schemaVersion: 1,
+            enNube: false
           };
           var cat = catalogoVersiones().filter(function(v){ return v && v.id !== nuevoId; });
           cat.push(reg);
@@ -3381,7 +3681,7 @@ td.c-estado{padding-left:2px;padding-right:2px}
   var btnImportarInfo = document.getElementById('importar-info');
   var inputImportar = document.getElementById('importar-archivo');
   var btnVersionOficial = document.getElementById('version-oficial');
-  var selVersion = document.getElementById('version-selector');
+  var listaVersion = document.getElementById('version-lista');
   if (btnExportarInfo) btnExportarInfo.addEventListener('click', correrExportacion);
   if (btnImportarInfo && inputImportar) btnImportarInfo.addEventListener('click', function(){ inputImportar.click(); });
   if (inputImportar) inputImportar.addEventListener('change', function(){
@@ -3395,13 +3695,20 @@ td.c-estado{padding-left:2px;padding-right:2px}
       alert((e && e.message) || 'No se pudo volver a la versión oficial.');
     });
   });
-  if (selVersion) selVersion.addEventListener('change', function(){
-    if (pintandoVersion) return;
-    var elegido = selVersion.value;
-    activarVersion(elegido).catch(function(e){
+  if (listaVersion) listaVersion.addEventListener('click', function(e){
+    var origen = e.target;
+    var borrar = origen.closest ? origen.closest('[data-borrar-version]') : null;
+    if (borrar) {
+      e.preventDefault();
+      eliminarVersion(borrar.getAttribute('data-borrar-version'));
+      return;
+    }
+    var elegir = origen.closest ? origen.closest('[data-elegir-version]') : null;
+    if (!elegir) return;
+    activarVersion(elegir.getAttribute('data-elegir-version')).catch(function(err){
       pintarVersion();
       estadoNube('No se pudo cambiar de versión');
-      alert((e && e.message) || 'No se pudo cambiar de versión.');
+      alert((err && err.message) || 'No se pudo cambiar de versión.');
     });
   });
   pintarVersion();
@@ -3426,7 +3733,12 @@ td.c-estado{padding-left:2px;padding-right:2px}
       return cargarUsuario();
     }).then(function(){
       return dbOp('readonly', function(s){ return s.getAll(); }).then(function(all){ (all || []).forEach(function(f){ photoCache[f.id] = f; }); }).catch(function(){});
-    }).then(asegurarCarpetas).then(archivosRemotosPorObra).then(migrarEstructuraDrive).then(function(remotoInfo){
+    }).then(asegurarCarpetas).then(reconciliarVersionesDrive).then(function(){
+      if (versionesProhibidas[versionActivaId()] || (versionActivaId() !== VERSION_OFICIAL && !registroVersion(versionActivaId()))) {
+        adoptarOficialPorVersionEliminada();
+      }
+      return apuntarPlanillasActiva(driveIds.oficialPlanillas);
+    }).then(archivosRemotosPorObra).then(migrarEstructuraDrive).then(function(remotoInfo){
       function stampRemoto(info){
         var parts = [];
         (info.porObra || []).forEach(function(item){ parts.push(item.slug + ':' + (item.file && item.file.modifiedTime || '')); });
@@ -3491,6 +3803,7 @@ td.c-estado{padding-left:2px;padding-right:2px}
       }
       function subir(){
         var vid = versionActivaId();
+        if (vid !== VERSION_OFICIAL && (versionesProhibidas[vid] || !registroVersion(vid))) return Promise.reject(errorVersionQuitada());
         var planillas = driveIds.planillas;
         var obras = obrasDistintas();
         if (!obras.length) obras = [obraActiva()];
@@ -3563,13 +3876,15 @@ td.c-estado{padding-left:2px;padding-right:2px}
       linkCarpeta();
     }).catch(function(err){
       console.error('Error de sincronización 3dF:', err);
+      if (err && err.versionQuitada) suprimirReintentoSync = true;
       if (err && err.auth) { cloudUser = null; mostrarCuenta(); }
       estadoNube(err && err.auth ? 'Google Drive: tocá Sincronizar para reconectar' : 'Error de sincronización');
       mensajeNube('No se pudo sincronizar: ' + ((err && err.message) || 'revisá la conexión.'));
     }).then(function(){
       syncing = false;
       syncActual = null;
-      if (lastLocalChange > lastCloudSync && tokenValido()) programarSync(true);
+      if (!suprimirReintentoSync && lastLocalChange > lastCloudSync && tokenValido()) programarSync(true);
+      suprimirReintentoSync = false;
     });
     return syncActual;
   }
@@ -3769,6 +4084,17 @@ td.c-estado{padding-left:2px;padding-right:2px}
         rutaActiva: rutaActiva,
         textoBadge: textoBadge,
         catalogoVersiones: catalogoVersiones,
+        reconciliarVersionesDrive: reconciliarVersionesDrive,
+        eliminarVersion: eliminarVersion,
+        versionYaEstuvoEnNube: versionYaEstuvoEnNube,
+        carpetaDeVersion: carpetaDeVersion,
+        sincronizarAhora: sincronizarAhora,
+        ocupada: function(){ return syncing; },
+        textoVersion: textoVersion,
+        seedCatalogo: function(list){ guardarCatalogo(list || []); pintarVersion(); },
+        seedOficialSnapshot: function(){ var previa = versionActivaId(); lsSet(LS.version, VERSION_OFICIAL); persistirSnapshotVersion(); lsSet(LS.version, previa); },
+        setDriveIds: function(p){ Object.keys(p || {}).forEach(function(k){ driveIds[k] = p[k]; }); lsSet(LS.ids, driveIds); },
+        prohibidas: function(){ return Object.keys(versionesProhibidas); },
         puedeEscribirEnPlanillas: puedeEscribirEnPlanillas,
         puedeEscribirVersion: puedeEscribirVersion,
         decidirMigracionPlanillas: decidirMigracionPlanillas,

@@ -26,6 +26,10 @@ Mi unidad/
 
 **Versiones** es hermana de Oficial (no vive adentro de Planillas). **Importar información** crea `Versiones/{empleado}_{YYYY-MM-DD-HHMM}/` y deja esa carpeta como versión activa: la sync siguiente sube ahí y no pisa Oficial. **Versión oficial** vuelve el puntero a Oficial y recarga esa copia; no borra ninguna carpeta de Versiones.
 
+Cada versión que no es Oficial tiene un tacho. Confirmado, manda **esa** carpeta a la papelera de Drive (se puede recuperar ahí); no toca Oficial ni la carpeta Versiones. Si la versión todavía no se subió, el tacho solo la quita de este dispositivo. Sin sesión no se finge que la carpeta de Drive se borró.
+
+Si alguien borra en Drive una carpeta que **ya se había subido**, la app la saca de la lista recién en la próxima sincronización con sesión válida: al abrir o volver a la pestaña si el acceso de Google sigue vigente, al volver internet, o al tocar **Sincronizar ahora**. No hay aviso instantáneo ni servidor intermedio. Un error de red, de permiso o de sesión no la borra de la app, y la sync no vuelve a crear esa carpeta. Una importación que todavía no se subió por primera vez sí puede crearla.
+
 Si el Drive todavía tiene el árbol viejo `3dF Checklist/Planillas/{obra}/` (sin `Oficial/`), la primera sincronización **mueve** esa carpeta a `Oficial/Planillas/` (el id no cambia y no se copia ni se vacía). Si `Oficial/Planillas` ya tiene archivos, el `Planillas` viejo se deja en la raíz sin borrarlo. Un Excel suelto (`3dF Checklist/checklist.xlsx` o `Oficial/Planillas/checklist.xlsx`) se parte por obra en la próxima sincronización **estando en Oficial** y después va a la papelera. La carpeta global `fotos/` también se mueve adentro de cada obra de Oficial y se tira; eso no corre mientras se está viendo una versión importada.
 
 Cada obra tiene su Excel. Cada pestaña de esa obra es su propia hoja (nombre recortado a 31 caracteres y sin `\ / * ? : [ ]`). La hoja **Config** guarda la obra, el id de cada pestaña, el próximo id, si está oculta, si es importante y el nombre de la hoja.
